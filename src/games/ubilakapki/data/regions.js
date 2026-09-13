@@ -1,0 +1,107 @@
+/**
+ * UBILAKAPKI - Regional Configurations
+ * Configurable Northeast Indian environmental settings.
+ * Supports multiple states with regional landscape, architecture, and vegetation accents.
+ */
+
+export const REGIONS = {
+  assam: {
+    id: 'assam',
+    name: 'Assam Valley',
+    nativeName: 'অসম',
+    skyColor: '#88BEE0',
+    groundColor: '#7A6B53', // Warm alluvial riverbank soil
+    ringBorderColor: '#E2D9C8',
+    hillsColor: '#3B6B38',
+    vegetation: 'bamboo_and_banana',
+    architecture: 'chang_ghar_stilt',
+    description: 'Brahmaputra alluvial valley with lush green hills and traditional stilt granary.',
+  },
+  meghalaya: {
+    id: 'meghalaya',
+    name: 'Meghalaya Highlands',
+    nativeName: 'Meghalaya',
+    skyColor: '#7AAECE',
+    groundColor: '#6B6355',
+    ringBorderColor: '#D8D0BE',
+    hillsColor: '#2D5832',
+    vegetation: 'pine_and_orchids',
+    architecture: 'khasi_timber_cottage',
+    description: 'Cloud-draped Khasi highlands with rolling green pine ridges.',
+  },
+  manipur: {
+    id: 'manipur',
+    name: 'Manipur Basin',
+    nativeName: 'Manipur',
+    skyColor: '#82B9DA',
+    groundColor: '#726450',
+    ringBorderColor: '#DFD5C2',
+    hillsColor: '#366030',
+    vegetation: 'wetland_reeds',
+    architecture: 'kangla_timber',
+    description: 'Scenic valley surrounded by blue hills and traditional woven fences.',
+  },
+  nagaland: {
+    id: 'nagaland',
+    name: 'Nagaland Hills',
+    nativeName: 'Nagaland',
+    skyColor: '#78B2D4',
+    groundColor: '#685D4E',
+    ringBorderColor: '#D5CBB9',
+    hillsColor: '#284F2A',
+    vegetation: 'highland_forest',
+    architecture: 'morung_dormitory',
+    description: 'Mountain ridge community with traditional Morung carved timber pillars.',
+  },
+  mizoram: {
+    id: 'mizoram',
+    name: 'Mizoram Ridges',
+    nativeName: 'Mizoram',
+    skyColor: '#7DB5D8',
+    groundColor: '#6E6252',
+    ringBorderColor: '#D9CFBD',
+    hillsColor: '#2F5C34',
+    vegetation: 'bamboo_groves',
+    architecture: 'zawlbuk_bamboo',
+    description: 'Misty bamboo ridges with warm community courtyard clearing.',
+  },
+  tripura: {
+    id: 'tripura',
+    name: 'Tripura Plains',
+    nativeName: 'ত্রিপুরা',
+    skyColor: '#8ABFE2',
+    groundColor: '#776853',
+    ringBorderColor: '#E0D6C4',
+    hillsColor: '#386935',
+    vegetation: 'rubber_and_cane',
+    architecture: 'cane_thatch_verandah',
+    description: 'Gentle green mounds surrounded by cane and palm clearings.',
+  },
+  arunachal: {
+    id: 'arunachal',
+    name: 'Arunachal Foothills',
+    nativeName: 'Arunachal',
+    skyColor: '#72A8CA',
+    groundColor: '#655A4B',
+    ringBorderColor: '#D2C8B6',
+    hillsColor: '#224625',
+    vegetation: 'conifers_and_bamboo',
+    architecture: 'adi_stilt_bamboo',
+    description: 'Sub-Himalayan evergreen river valley with snow peaks in the far distance.',
+  },
+  sikkim: {
+    id: 'sikkim',
+    name: 'Sikkim Terraces',
+    nativeName: 'Sikkim',
+    skyColor: '#6FA3C5',
+    groundColor: '#62584A',
+    ringBorderColor: '#CEC4B2',
+    hillsColor: '#1E4222',
+    vegetation: 'rhododendron_and_cardamom',
+    architecture: 'stone_and_wood_dwelling',
+    description: 'Terraced mountain slopes framed by majestic Himalayan peaks.',
+  },
+};
+
+export const DEFAULT_REGION = REGIONS.assam;
+export const REGION_LIST = Object.values(REGIONS);

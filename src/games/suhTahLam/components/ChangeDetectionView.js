@@ -71,33 +71,39 @@ export default function ChangeDetectionView({
       <PerspectiveStage cameraMode="wide">
         <Environment3D isDarkMode={isDarkMode} />
 
-        <BambooGroup3D
-          leftPoleAnimX={bambooLeftX}
-          rightPoleAnimX={bambooRightX}
-        />
+        <View style={styles.stageArena}>
+          <BambooGroup3D
+            leftPoleAnimX={bambooLeftX}
+            rightPoleAnimX={bambooRightX}
+            length={195}
+          />
 
-        <Character3D
-          role="holder_left"
-          positionX={-112}
-          positionY={0}
-          actionState={isAlteredPerformer ? 'step_left' : 'holding_bamboo'}
-          isAltered={isAlteredPerformer}
-        />
+          <Character3D
+            role="holder_left"
+            name={t('games.suhTahLam.holderThangminlen', 'Thangminlen')}
+            positionX={-116}
+            positionY={0}
+            actionState={isAlteredPerformer ? 'step_left' : 'holding_bamboo'}
+            isAltered={isAlteredPerformer}
+          />
 
-        <Character3D
-          role="holder_right"
-          positionX={112}
-          positionY={0}
-          actionState="holding_bamboo"
-        />
+          <Character3D
+            role="holder_right"
+            name={t('games.suhTahLam.holderPaominlun', 'Paominlun')}
+            positionX={116}
+            positionY={0}
+            actionState="holding_bamboo"
+          />
 
-        <Character3D
-          role="dancer"
-          positionX={dancerPos.x}
-          positionY={dancerPos.y}
-          actionState="idle"
-          isAltered={isAlteredDancer}
-        />
+          <Character3D
+            role="dancer"
+            name={t('games.suhTahLam.dancerKimboi', 'Kimboi · Lead Dancer')}
+            positionX={dancerPos.x}
+            positionY={dancerPos.y}
+            actionState="idle"
+            isAltered={isAlteredDancer}
+          />
+        </View>
       </PerspectiveStage>
 
       {/* Phase 1: Observation Instructions */}
@@ -193,6 +199,16 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     alignItems: 'center',
+  },
+  stageArena: {
+    position: 'absolute',
+    top: 58,
+    bottom: 14,
+    left: 12,
+    right: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   instructionCard: {
     width: '100%',

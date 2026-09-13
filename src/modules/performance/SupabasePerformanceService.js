@@ -141,7 +141,18 @@ export class SupabasePerformanceService {
     try {
       await saveGameResult({
         patient_id: session.playerId,
-        game_name: session.gameType === 'dhop_khel' ? 'Dhopkhel Memory' : session.gameType,
+        game_name:
+          session.gameType === 'dhop_khel'
+            ? 'Dhopkhel Memory'
+            : session.gameType === 'suh_tah_lam'
+            ? 'SUH TAH LAM'
+            : session.gameType === 'ubilakapki'
+            ? 'Ubilakapki Coconut Toss'
+            : session.gameType === 'morung_wayfinding'
+            ? 'Morung Wayfinding'
+            : session.gameType === 'storyteller'
+            ? 'Xuworoni Kotha'
+            : session.gameType,
         score: roundData.isCorrect ? 10 : 0,
         duration: roundData.completionTimeSec || 2,
         difficulty:

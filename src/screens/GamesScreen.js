@@ -1,24 +1,28 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import SequenceGame from '../games/SequenceGame';
-import MemoryMatchGame from '../games/MemoryMatchGame';
-import SupermarketGame from '../games/SupermarketGame';
-import SortingGame from '../games/SortingGame';
-import MemoryPathGame from '../games/MemoryPathGame';
 import DhopkhelGame from '../games/DhopkhelGame';
 import MemoryStoriesGame from '../games/MemoryStoriesGame';
 import SuhTahLamGame from '../games/suhTahLam';
+import UbilakapkiGame from '../games/ubilakapki/UbilakapkiGame';
+import NortheastMemoryGame from '../games/NortheastMemoryGame';
 import LanguageSelector from '../components/LanguageSelector';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export default function GamesScreen() {
   const [selectedGame, setSelectedGame] = useState(null);
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
   const navigation = useNavigation();
+  const route = useRoute();
+
+  React.useEffect(() => {
+    if (route?.params?.game) {
+      setSelectedGame(route.params.game);
+    }
+  }, [route?.params?.game]);
 
   if (!selectedGame) {
     return (
@@ -59,6 +63,55 @@ export default function GamesScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
 
+          {/* UBILAKAPKI (Coconut Passing Game) */}
+          <TouchableOpacity
+            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+            onPress={() => setSelectedGame('ubilakapki')}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('games.ubilakapki.title', '🥥 Ubilakapki Coconut Toss')}, ${t('games.ubilakapki.tagline', 'Watch the circle · Remember who holds the coconut')}`}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#451A03' : '#FEF3C7' }]}>
+              <Ionicons name="ellipse-outline" size={24} color="#B45309" />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <Text style={[styles.menuCardTitle, { color: theme.text, marginBottom: 0 }]}>
+                  {t('games.ubilakapki.title', '🥥 Ubilakapki Coconut Toss')}
+                </Text>
+                <View style={{ backgroundColor: isDarkMode ? '#3B2716' : '#FDE68A', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#FDE68A' : '#92400E' }}>
+                    {t('games.suhTahLam.culturalCategory', 'CULTURAL MEMORY')}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.menuCardSub, { color: theme.subText }]}>
+                {t('games.ubilakapki.tagline', 'Watch the circle · Remember who holds the coconut')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
+          </TouchableOpacity>
+
+          {/* NORTH EAST PHOTO MEMORY */}
+          <TouchableOpacity
+            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+            onPress={() => setSelectedGame('northeast')}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('games.northeastTitle', '🏞️ North East Memory')}, ${t('games.northeastSub', 'Observe scenic photos & recall details')}`}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#064E3B' : '#D1FAE5' }]}>
+              <Ionicons name="image-outline" size={24} color="#059669" />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <Text style={[styles.menuCardTitle, { color: theme.text }]}>
+                {t('games.northeastTitle', '🏞️ North East Memory')}
+              </Text>
+              <Text style={[styles.menuCardSub, { color: theme.subText }]}>
+                {t('games.northeastSub', 'Observe scenic photos & recall details')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
             onPress={() => setSelectedGame('dhopkhel')}
@@ -89,75 +142,6 @@ export default function GamesScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setSelectedGame('sequence')}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="game-controller-outline" size={24} color={theme.primary} />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.sequence.title', 'Sequence Recall')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.sequence.tagline', 'Practice pattern recognition')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setSelectedGame('memory')}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="images-outline" size={24} color={theme.primary} />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.memoryMatch.title', 'Memory Match')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.memoryMatch.tagline', 'Find the matching card pairs')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setSelectedGame('supermarket')}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="cart-outline" size={24} color={theme.primary} />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.supermarket.title', 'Supermarket Run')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.supermarket.tagline', 'Remember and find items on your shopping list')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setSelectedGame('sorting')}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="list-circle-outline" size={24} color={theme.primary} />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.sorting.title', 'Category Sorting')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.sorting.tagline', 'Sort items into the right categories')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setSelectedGame('path')}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="footsteps-outline" size={24} color={theme.primary} />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.memoryPath.title', 'Memory Path')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.memoryPath.tagline', 'Recall sequences and daily stories')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: theme.cardBorder, marginTop: 10 }]}
@@ -167,6 +151,30 @@ export default function GamesScreen() {
             <Text style={[styles.backButtonText, { color: theme.text }]}>{t('common.back')}</Text>
           </TouchableOpacity>
         </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (selectedGame === 'suhTahLam') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <SuhTahLamGame onExit={() => setSelectedGame(null)} />
+      </SafeAreaView>
+    );
+  }
+
+  if (selectedGame === 'ubilakapki') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <UbilakapkiGame onExit={() => setSelectedGame(null)} />
+      </SafeAreaView>
+    );
+  }
+
+  if (selectedGame === 'northeast') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <NortheastMemoryGame onExit={() => setSelectedGame(null)} />
       </SafeAreaView>
     );
   }
@@ -187,34 +195,7 @@ export default function GamesScreen() {
     );
   }
 
-  if (selectedGame === 'suhTahLam') {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <SuhTahLamGame onExit={() => setSelectedGame(null)} />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <View style={[styles.headerBar, { backgroundColor: theme.cardBackground, borderBottomColor: theme.cardBorder, justifyContent: 'space-between' }]}>
-        <TouchableOpacity style={styles.headerBack} onPress={() => setSelectedGame(null)}>
-          <Ionicons name="arrow-back" size={24} color={theme.primary} />
-          <Text style={[styles.headerBackText, { color: theme.primary }]}>{t('games.backToMenu')}</Text>
-        </TouchableOpacity>
-        <LanguageSelector compact={true} />
-      </View>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, padding: 10 }}>
-          {selectedGame === 'sequence' && <SequenceGame />}
-          {selectedGame === 'memory' && <MemoryMatchGame />}
-          {selectedGame === 'supermarket' && <SupermarketGame />}
-          {selectedGame === 'sorting' && <SortingGame />}
-          {selectedGame === 'path' && <MemoryPathGame />}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return null;
 }
 
 

@@ -39,6 +39,7 @@ export default function SequencePlayer({
   isDarkMode = false,
   soundEnabled = true,
   onComplete,
+  onBambooClack,
 }) {
   const { t, currentLanguage } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(true);
@@ -50,6 +51,7 @@ export default function SequencePlayer({
   // Animation values for 3D elements
   const leftPoleX = useRef(new Animated.Value(-BAMBOO_OPEN_X)).current;
   const rightPoleX = useRef(new Animated.Value(BAMBOO_OPEN_X)).current;
+  const impactAnim = useRef(new Animated.Value(0)).current;
   const dancerX = useRef(new Animated.Value(0)).current;
   const dancerY = useRef(new Animated.Value(0)).current;
 
@@ -81,6 +83,18 @@ export default function SequencePlayer({
     setCurrentDancerAction(event.dancerAction || 'step_center');
 
     const stepDuration = sequence.tier === 'hard' ? 1200 : sequence.tier === 'medium' ? 1500 : 1900;
+
+    if (!isBambooOpen) {
+      setTimeout(() => {
+        if (onBambooClack && soundEnabled) {
+          onBambooClack();
+        }
+        Animated.sequence([
+          Animated.timing(impactAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
+          Animated.timing(impactAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        ]).start();
+      }, stepDuration * 0.45);
+    }
 
     // Execute physical 3D animations
     Animated.parallel([
@@ -140,32 +154,43 @@ export default function SequencePlayer({
       <PerspectiveStage cameraMode={isPlaying ? 'normal' : 'wide'}>
         <Environment3D isDarkMode={isDarkMode} />
 
-        {/* Dual Bamboo Poles */}
-        <BambooGroup3D leftPoleAnimX={leftPoleX} rightPoleAnimX={rightPoleX} />
+        {/* Physical Stage Arena - perfectly aligned on top of the festival stage platform */}
+        <View style={styles.stageArena}>
+          {/* Dual Bamboo Poles with Impact Flash */}
+          <BambooGroup3D
+            leftPoleAnimX={leftPoleX}
+            rightPoleAnimX={rightPoleX}
+            impactAnim={impactAnim}
+            length={195}
+          />
 
-        {/* Left Seated Bamboo Holder */}
-        <Character3D
-          role="holder_left"
-          positionX={-112}
-          positionY={0}
-          actionState={isPlaying ? 'push_pull' : 'holding_bamboo'}
-        />
+          {/* Left Seated Bamboo Holder (Thangminlen) */}
+          <Character3D
+            role="holder_left"
+            name={t('games.suhTahLam.holderThangminlen', 'Thangminlen')}
+            positionX={-116}
+            positionY={0}
+            actionState={isPlaying ? 'push_pull' : 'holding_bamboo'}
+          />
 
-        {/* Right Seated Bamboo Holder */}
-        <Character3D
-          role="holder_right"
-          positionX={112}
-          positionY={0}
-          actionState={isPlaying ? 'push_pull' : 'holding_bamboo'}
-        />
+          {/* Right Seated Bamboo Holder (Paominlun) */}
+          <Character3D
+            role="holder_right"
+            name={t('games.suhTahLam.holderPaominlun', 'Paominlun')}
+            positionX={116}
+            positionY={0}
+            actionState={isPlaying ? 'push_pull' : 'holding_bamboo'}
+          />
 
-        {/* Central Articulated Dancer */}
-        <Character3D
-          role="dancer"
-          positionX={dancerX}
-          positionY={dancerY}
-          actionState={currentDancerAction}
-        />
+          {/* Central Articulated Dancer (Kimboi) */}
+          <Character3D
+            role="dancer"
+            name={t('games.suhTahLam.dancerKimboi', 'Kimboi · Lead Dancer')}
+            positionX={dancerX}
+            positionY={dancerY}
+            actionState={currentDancerAction}
+          />
+        </View>
       </PerspectiveStage>
 
       {/* Observation Guidance Banner */}
@@ -230,6 +255,16 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     alignItems: 'center',
+  },
+  stageArena: {
+    position: 'absolute',
+    top: 58,
+    bottom: 14,
+    left: 12,
+    right: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   guidanceCard: {
     flexDirection: 'row',

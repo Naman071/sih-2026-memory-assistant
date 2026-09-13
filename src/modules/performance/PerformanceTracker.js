@@ -122,7 +122,15 @@ export class PerformanceTracker {
   /**
    * Records the player's answer selection
    */
-  recordAnswer({ chosenPlayerId, correctPlayerId, isCorrect, responseTimeMs = null }) {
+  recordAnswer({
+    chosenPlayerId,
+    correctPlayerId,
+    chosenAnswer,
+    correctAnswer,
+    isCorrect,
+    responseTimeMs = null,
+    metadata = {},
+  }) {
     if (!this.activeRound) return null;
 
     let computedResponseTime = responseTimeMs;
@@ -130,10 +138,16 @@ export class PerformanceTracker {
       computedResponseTime = Math.max(50, Date.now() - this.interactionStartTimestamp);
     }
 
+    const finalChosen = chosenAnswer !== undefined ? chosenAnswer : chosenPlayerId;
+    const finalCorrect = correctAnswer !== undefined ? correctAnswer : correctPlayerId;
+
     this.activeRound.attempts += 1;
     this.activeRound.chosenPlayerId = chosenPlayerId;
     this.activeRound.correctPlayerId = correctPlayerId;
+    this.activeRound.chosenAnswer = finalChosen;
+    this.activeRound.correctAnswer = finalCorrect;
     this.activeRound.isCorrect = isCorrect;
+    this.activeRound.metadata = { ...this.activeRound.metadata, ...metadata };
 
     if (isCorrect) {
       this.activeRound.correctAttempts += 1;
@@ -148,8 +162,11 @@ export class PerformanceTracker {
     this.recordEvent('answer_submitted', {
       chosenPlayerId,
       correctPlayerId,
+      chosenAnswer: finalChosen,
+      correctAnswer: finalCorrect,
       isCorrect,
       responseTimeMs: computedResponseTime,
+      ...metadata,
     });
 
     return {
@@ -266,7 +283,7 @@ export class PerformanceTracker {
   /**
    * Handles user backing out or abandoning a round mid-way
    */
-  async abandonRound() {
+  abandonRound() {
     if (!this.activeRound) return null;
 
     const roundEnd = new Date().toISOString();
