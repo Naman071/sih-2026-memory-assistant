@@ -17,11 +17,11 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 
 const RELATIONSHIPS = [
-  { label: 'Son', icon: 'person-outline' },
-  { label: 'Daughter', icon: 'person-outline' },
-  { label: 'Spouse', icon: 'heart-outline' },
-  { label: 'Grandchild', icon: 'people-outline' },
-  { label: 'Other', icon: 'shield-outline' },
+  { label: 'Son', key: 'setup.relSon', icon: 'person-outline' },
+  { label: 'Daughter', key: 'setup.relDaughter', icon: 'person-outline' },
+  { label: 'Spouse', key: 'setup.relSpouse', icon: 'heart-outline' },
+  { label: 'Grandchild', key: 'setup.relGrandchild', icon: 'people-outline' },
+  { label: 'Other', key: 'setup.relOther', icon: 'shield-outline' },
 ];
 
 export default function SetupWizard({ onComplete }) {
@@ -60,7 +60,7 @@ export default function SetupWizard({ onComplete }) {
 
   const handleSave = async () => {
     if (!patientName.trim()) {
-      setErrorMessage('Please enter the patient’s name.');
+      setErrorMessage(t('setup.enterPatientNameError') || 'Please enter the patient’s name.');
       return;
     }
 
@@ -82,7 +82,10 @@ export default function SetupWizard({ onComplete }) {
       }
     } catch (err) {
       console.warn('Setup save error:', err);
-      Alert.alert('Saved locally', 'Details saved on your device successfully.');
+      Alert.alert(
+        t('setup.savedLocallyTitle') || 'Saved locally',
+        t('setup.savedLocallyMsg') || 'Details saved on your device successfully.'
+      );
       if (onComplete) onComplete();
     } finally {
       setIsSaving(false);
@@ -105,12 +108,12 @@ export default function SetupWizard({ onComplete }) {
           </View>
 
           <Text style={[styles.title, { color: theme.text }]}>
-            {isEditingSetup ? 'Edit Profile' : 'Setup Profile'}
+            {isEditingSetup ? (t('setup.editTitle') || 'Edit Profile') : (t('setup.setupTitle') || 'Setup Profile')}
           </Text>
           <Text style={[styles.subtitle, { color: theme.subText }]}>
             {isEditingSetup
-              ? 'Update caregiver and patient details below.'
-              : 'Enter patient and caregiver details to configure daily reminders and memory exercises.'}
+              ? (t('setup.editSubtitle') || 'Update caregiver and patient details below.')
+              : (t('setup.setupSubtitle') || 'Enter patient and caregiver details to configure daily reminders and memory exercises.')}
           </Text>
         </View>
 
@@ -127,14 +130,20 @@ export default function SetupWizard({ onComplete }) {
               <Ionicons name="person-outline" size={18} color={theme.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Caregiver Details</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.subText }]}>Primary contact & manager</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {t('setup.caregiverSectionTitle') || 'Caregiver Details'}
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.subText }]}>
+                {t('setup.caregiverSectionSubtitle') || 'Primary contact & manager'}
+              </Text>
             </View>
           </View>
 
           {/* Caregiver Name */}
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Caregiver Name</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('setup.caregiverNameLabel') || 'Caregiver Name'}
+            </Text>
             <TextInput
               style={[
                 styles.input,
@@ -144,7 +153,7 @@ export default function SetupWizard({ onComplete }) {
                   color: theme.text,
                 },
               ]}
-              placeholder="e.g. Rahul Sharma"
+              placeholder={t('setup.caregiverNamePlaceholder') || 'e.g. Rahul Sharma'}
               placeholderTextColor={theme.subText}
               value={caregiverName}
               onChangeText={(text) => {
@@ -157,7 +166,9 @@ export default function SetupWizard({ onComplete }) {
 
           {/* Caregiver Phone Number */}
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Caregiver Phone Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('setup.caregiverPhoneLabel') || 'Caregiver Phone Number'}
+            </Text>
             <TextInput
               style={[
                 styles.input,
@@ -167,7 +178,7 @@ export default function SetupWizard({ onComplete }) {
                   color: theme.text,
                 },
               ]}
-              placeholder="e.g. +91 98765 43210"
+              placeholder={t('setup.caregiverPhonePlaceholder') || 'e.g. +91 98765 43210'}
               placeholderTextColor={theme.subText}
               value={caregiverPhone}
               onChangeText={setCaregiverPhone}
@@ -184,15 +195,19 @@ export default function SetupWizard({ onComplete }) {
               <Ionicons name="heart-outline" size={18} color={isDarkMode ? '#34D399' : '#059669'} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Patient Information</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.subText }]}>Person using the daily assistant</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {t('setup.patientSectionTitle') || 'Patient Information'}
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.subText }]}>
+                {t('setup.patientSectionSubtitle') || 'Person using the daily assistant'}
+              </Text>
             </View>
           </View>
 
           {/* Patient Name */}
           <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: theme.text }]}>
-              Patient Name <Text style={styles.requiredStar}>*</Text>
+              {t('setup.patientNameLabel') || 'Patient Name'} <Text style={styles.requiredStar}>*</Text>
             </Text>
             <TextInput
               style={[
@@ -203,7 +218,7 @@ export default function SetupWizard({ onComplete }) {
                   color: theme.text,
                 },
               ]}
-              placeholder="e.g. Chandni Devi"
+              placeholder={t('setup.patientNamePlaceholder') || 'e.g. Chandni Devi'}
               placeholderTextColor={theme.subText}
               value={patientName}
               onChangeText={(text) => {
@@ -216,7 +231,9 @@ export default function SetupWizard({ onComplete }) {
 
           {/* Patient Phone Number */}
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Patient Phone Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('setup.patientPhoneLabel') || 'Patient Phone Number'}
+            </Text>
             <TextInput
               style={[
                 styles.input,
@@ -226,7 +243,7 @@ export default function SetupWizard({ onComplete }) {
                   color: theme.text,
                 },
               ]}
-              placeholder="e.g. +91 98765 12345"
+              placeholder={t('setup.patientPhonePlaceholder') || 'e.g. +91 98765 12345'}
               placeholderTextColor={theme.subText}
               value={patientPhone}
               onChangeText={setPatientPhone}
@@ -238,7 +255,9 @@ export default function SetupWizard({ onComplete }) {
           {/* Age & Relationship side by side */}
           <View style={styles.rowFields}>
             <View style={[styles.fieldGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: theme.text }]}>Age</Text>
+              <Text style={[styles.label, { color: theme.text }]}>
+                {t('setup.patientAgeLabel') || 'Age'}
+              </Text>
               <TextInput
                 style={[
                   styles.input,
@@ -248,7 +267,7 @@ export default function SetupWizard({ onComplete }) {
                     color: theme.text,
                   },
                 ]}
-                placeholder="72"
+                placeholder={t('setup.patientAgePlaceholder') || '72'}
                 placeholderTextColor={theme.subText}
                 value={patientAge}
                 onChangeText={setPatientAge}
@@ -259,7 +278,9 @@ export default function SetupWizard({ onComplete }) {
             </View>
 
             <View style={[styles.fieldGroup, { flex: 1.6 }]}>
-              <Text style={[styles.label, { color: theme.text }]}>Relationship</Text>
+              <Text style={[styles.label, { color: theme.text }]}>
+                {t('setup.relToPatientLabel') || 'Relationship'}
+              </Text>
               <TouchableOpacity
                 style={[
                   styles.dropdownTrigger,
@@ -276,7 +297,7 @@ export default function SetupWizard({ onComplete }) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <Ionicons name={selectedRelObj.icon} size={18} color={theme.primary} style={{ marginRight: 8 }} />
                   <Text style={[styles.dropdownValue, { color: theme.text }]} numberOfLines={1}>
-                    {selectedRelObj.label}
+                    {t(selectedRelObj.key) || selectedRelObj.label}
                   </Text>
                 </View>
                 <Ionicons name="chevron-down" size={18} color={theme.subText} />
@@ -298,7 +319,11 @@ export default function SetupWizard({ onComplete }) {
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.saveButtonText}>Save & Continue</Text>
+                <Text style={styles.saveButtonText}>
+                  {isEditingSetup
+                    ? (t('setup.saveChanges') || 'Save Changes')
+                    : (t('setup.saveProfile') || 'Save Profile')}
+                </Text>
                 <Ionicons name="checkmark-circle-outline" size={22} color="#FFFFFF" />
               </View>
             )}
@@ -310,7 +335,9 @@ export default function SetupWizard({ onComplete }) {
               onPress={closeSetupWizard}
               activeOpacity={0.7}
             >
-              <Text style={[styles.cancelButtonText, { color: theme.subText }]}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: theme.subText }]}>
+                {t('common.cancel') || 'Cancel'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -338,7 +365,7 @@ export default function SetupWizard({ onComplete }) {
             ]}
           >
             <Text style={[styles.modalHeaderTitle, { color: theme.text }]}>
-              Select Relationship
+              {t('setup.selectRelLabel') || 'Select Relationship'}
             </Text>
 
             {RELATIONSHIPS.map((item) => {
@@ -378,7 +405,7 @@ export default function SetupWizard({ onComplete }) {
                       },
                     ]}
                   >
-                    {item.label}
+                    {t(item.key) || item.label}
                   </Text>
                   {isSelected && (
                     <Ionicons name="checkmark" size={22} color={theme.primary} style={styles.optionCheck} />

@@ -28,7 +28,7 @@ export default function AddFamilyMemberModal({ visible, onClose, patientId, onAd
 
   const handleSave = async () => {
     if (!name.trim() || !relationship.trim()) {
-      setError(t('common.error') || 'Name and relationship are required.');
+      setError(t('memories.nameRelRequired') || 'Name and relationship are required.');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function AddFamilyMemberModal({ visible, onClose, patientId, onAd
       onClose();
     } catch (err) {
       console.error('Failed to add family member:', err);
-      setError(err.message || 'Failed to add family member.');
+      setError(err.message || t('memories.addFailed') || 'Failed to add family member.');
     } finally {
       setLoading(false);
     }
@@ -77,55 +77,67 @@ export default function AddFamilyMemberModal({ visible, onClose, patientId, onAd
       >
         <View style={[styles.modalContainer, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
           <ScrollView>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Add Family Member</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {t('memories.addMemberModalTitle') || 'Add Family Member'}
+            </Text>
             
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Text style={[styles.label, { color: theme.text }]}>Name *</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('memories.nameLabel') || 'Name *'}
+            </Text>
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.cardBorder }]}
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Rahul Sharma"
+              placeholder={t('memories.namePlaceholder') || 'e.g. Rahul Sharma'}
               placeholderTextColor={theme.subText}
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Relationship *</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('memories.relLabel') || 'Relationship *'}
+            </Text>
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.cardBorder }]}
               value={relationship}
               onChangeText={setRelationship}
-              placeholder="e.g. Son, Daughter, Spouse"
+              placeholder={t('memories.relPlaceholder') || 'e.g. Son, Daughter, Spouse'}
               placeholderTextColor={theme.subText}
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Description</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('memories.descLabel') || 'Description (optional)'}
+            </Text>
             <TextInput
               style={[styles.input, styles.textArea, { color: theme.text, borderColor: theme.cardBorder }]}
               value={description}
               onChangeText={setDescription}
-              placeholder="e.g. Visits every Sunday"
+              placeholder={t('memories.descPlaceholder') || 'e.g. Visits every Sunday'}
               placeholderTextColor={theme.subText}
               multiline
               numberOfLines={3}
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Phone Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('memories.phoneLabel') || 'Phone Number'}
+            </Text>
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.cardBorder }]}
               value={phone}
               onChangeText={setPhone}
-              placeholder="e.g. +91 98765 43210"
+              placeholder={t('memories.phonePlaceholder') || 'e.g. +91 98765 43210'}
               placeholderTextColor={theme.subText}
               keyboardType="phone-pad"
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Photo URL (Optional)</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t('memories.photoLabel') || 'Photo URL (optional)'}
+            </Text>
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.cardBorder }]}
               value={photoUrl}
               onChangeText={setPhotoUrl}
-              placeholder="https://example.com/photo.jpg"
+              placeholder={t('memories.photoPlaceholder') || 'https://example.com/photo.jpg'}
               placeholderTextColor={theme.subText}
               keyboardType="url"
             />
@@ -136,7 +148,7 @@ export default function AddFamilyMemberModal({ visible, onClose, patientId, onAd
                 onPress={onClose}
                 disabled={loading}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
+                <Text style={styles.buttonText}>{t('common.cancel') || 'Cancel'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.saveButton, loading && styles.disabledButton]}
@@ -146,7 +158,7 @@ export default function AddFamilyMemberModal({ visible, onClose, patientId, onAd
                 {loading ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
-                  <Text style={styles.buttonText}>Save</Text>
+                  <Text style={styles.buttonText}>{t('common.save') || 'Save'}</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -115,7 +115,6 @@ export default function LanguageSelector({ compact = false }) {
                       },
                     ]}
                   >
-                    <Text style={styles.flagText}>{lang.flag}</Text>
                     <View style={styles.langInfo}>
                       <Text
                         style={[
@@ -223,10 +222,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 14,
     borderWidth: 1.5,
-  },
-  flagText: {
-    fontSize: 24,
-    marginRight: 14,
   },
   langInfo: {
     flex: 1,

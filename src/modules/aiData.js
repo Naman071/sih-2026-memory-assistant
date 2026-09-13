@@ -1,30 +1,65 @@
-// This file stores the data for Chandni's AI Assistant
+import { t } from '../i18n';
 
-// Mock AI responses (will be replaced with real LLM calls later)
+// Localized rule-based responses for all 4 supported languages
 export const getAIResponse = (question, patientId = 'P001') => {
+  if (!question || typeof question !== 'string') {
+    return t('ai.responses.default');
+  }
+
   const lowerQuestion = question.toLowerCase();
-  
-  // Simple rule-based responses
-  if (lowerQuestion.includes('rahul')) {
-    return "Rahul is your son. He lives in Guwahati and works as a software engineer. He visits you every month.";
+
+  if (
+    lowerQuestion.includes('rahul') ||
+    lowerQuestion.includes('ৰাহুল') ||
+    lowerQuestion.includes('রাহুল') ||
+    lowerQuestion.includes('राहुल')
+  ) {
+    return t('ai.responses.rahul');
   }
-  
-  if (lowerQuestion.includes('priya')) {
-    return "Priya is your daughter. She lives in Delhi and is a doctor. She calls you every Sunday.";
+
+  if (
+    lowerQuestion.includes('priya') ||
+    lowerQuestion.includes('প্ৰিয়া') ||
+    lowerQuestion.includes('প্ৰিয়া') ||
+    lowerQuestion.includes('প্রিয়া') ||
+    lowerQuestion.includes('प्रिया')
+  ) {
+    return t('ai.responses.priya');
   }
-  
-  if (lowerQuestion.includes('today')) {
-    return "Today's schedule: 8:00 AM - Take medicine, 10:30 AM - Walk in the garden, 6:00 PM - Call Rahul.";
+
+  if (
+    lowerQuestion.includes('today') ||
+    lowerQuestion.includes('schedule') ||
+    lowerQuestion.includes('আজি') ||
+    lowerQuestion.includes('সূচী') ||
+    lowerQuestion.includes('আজকের') ||
+    lowerQuestion.includes('दिनचर्या') ||
+    lowerQuestion.includes('आज')
+  ) {
+    return t('ai.responses.schedule');
   }
-  
-  if (lowerQuestion.includes('family')) {
-    return "Your family includes: Rahul (son), Priya (daughter), and Anita (granddaughter).";
+
+  if (
+    lowerQuestion.includes('family') ||
+    lowerQuestion.includes('পৰিয়াল') ||
+    lowerQuestion.includes('পৰিয়াল') ||
+    lowerQuestion.includes('পরিবার') ||
+    lowerQuestion.includes('परिवार')
+  ) {
+    return t('ai.responses.family');
   }
-  
-  if (lowerQuestion.includes('medicine')) {
-    return "You need to take your medicine at 8:00 AM and 8:00 PM. Please check with your doctor.";
+
+  if (
+    lowerQuestion.includes('medicine') ||
+    lowerQuestion.includes('med') ||
+    lowerQuestion.includes('ঔষধ') ||
+    lowerQuestion.includes('ওষুধ') ||
+    lowerQuestion.includes('দবা') ||
+    lowerQuestion.includes('दवा')
+  ) {
+    return t('ai.responses.medicine');
   }
-  
+
   // Default response
-  return "I'm here to help you. You can ask me about your family, today's schedule, or your medicines. What would you like to know?";
+  return t('ai.responses.default');
 };

@@ -66,7 +66,7 @@ export default function HomeScreen() {
 
   const statusDisplay = {
     isSuccess: statusState.type === 'connected',
-    text: statusState.type === 'connected' ? 'Connected' : 'Offline',
+    text: statusState.type === 'connected' ? (t('home.statusConnected') || 'Connected') : (t('home.statusOffline') || 'Offline'),
   };
 
   const defaultFriend =
@@ -162,9 +162,11 @@ export default function HomeScreen() {
                 <Ionicons name="shield-checkmark" size={18} color={theme.primary} />
               </View>
               <View style={styles.caregiverDetails}>
-                <Text style={[styles.caregiverRoleLabel, { color: theme.subText }]}>Primary Caregiver</Text>
+                <Text style={[styles.caregiverRoleLabel, { color: theme.subText }]}>
+                  {t('home.primaryCaregiver') || 'Primary Caregiver'}
+                </Text>
                 <Text style={[styles.caregiverNameText, { color: theme.text }]} numberOfLines={1}>
-                  {caregiverName || 'Assigned Caregiver'}
+                  {caregiverName || t('home.assignedCaregiver') || 'Assigned Caregiver'}
                 </Text>
               </View>
               {caregiverPhone ? (
@@ -210,7 +212,7 @@ export default function HomeScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.primary} />
               <Text style={[styles.loadingSubtext, { color: theme.subText }]}>
-                Loading schedule...
+                {t('home.loadingSchedule') || 'Loading schedule...'}
               </Text>
             </View>
           ) : safeReminders.length > 0 ? (
@@ -284,7 +286,7 @@ export default function HomeScreen() {
                 {t('home.playGames') || 'Brain Exercises'}
               </Text>
               <Text style={[styles.actionTileSubtitle, { color: theme.subText }]}>
-                Cognitive recall & focus
+                {t('home.brainExercisesSub') || 'Cognitive recall & focus'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -310,7 +312,7 @@ export default function HomeScreen() {
                 {t('home.viewMemories') || 'Family & Loved Ones'}
               </Text>
               <Text style={[styles.actionTileSubtitle, { color: theme.subText }]}>
-                Faces & relationships
+                {t('home.lovedOnesSub') || 'Faces & relationships'}
               </Text>
             </View>
           </TouchableOpacity>

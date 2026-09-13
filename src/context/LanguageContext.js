@@ -49,8 +49,8 @@ export function LanguageProvider({ children }) {
 
   // Wrap t so it is bound to currentLanguage state for reactive re-renders
   const t = useCallback(
-    (key, params) => {
-      return i18nT(key, params);
+    (key, fallbackOrParams, maybeParams) => {
+      return i18nT(key, fallbackOrParams, maybeParams);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentLanguage]

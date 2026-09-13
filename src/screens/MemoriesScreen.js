@@ -55,12 +55,14 @@ export default function MemoriesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerTitle}>
             <Text style={[styles.title, { color: theme.text }]}>
               {t('memories.title')}
             </Text>
             <Text style={[styles.subtitle, { color: theme.subText }]}>
-              {familyList.length} {familyList.length === 1 ? 'member' : 'members'} saved
+              {familyList.length === 1
+                ? t('memories.membersSavedOne')
+                : t('memories.membersSavedMany', { count: familyList.length })}
             </Text>
           </View>
           <TouchableOpacity
@@ -69,7 +71,7 @@ export default function MemoriesScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={22} color="#FFFFFF" />
-            <Text style={styles.addButtonText}>Add</Text>
+            <Text style={styles.addButtonText}>{t('common.add') || 'Add'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -123,9 +125,11 @@ export default function MemoriesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="people-outline" size={48} color={theme.subText} style={{ marginBottom: 12 }} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>No family members yet</Text>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                {t('memories.emptyTitle')}
+              </Text>
               <Text style={[styles.emptyText, { color: theme.subText }]}>
-                Tap the "+ Add" button above to add family and loved ones for easy recognition.
+                {t('memories.emptyText')}
               </Text>
             </View>
           }
@@ -162,9 +166,15 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    width: '100%',
     marginBottom: 20,
     marginTop: 4,
+  },
+  headerTitle: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
   },
   title: {
     fontSize: 28,
@@ -180,7 +190,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    flexShrink: 0,
+    minHeight: 42,
+    paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 20,
     shadowColor: '#000',
