@@ -69,11 +69,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#7C5E3B',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
   },
   stoneFloorDark: {
     backgroundColor: '#57412A',
@@ -126,11 +121,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#5D4037',
     borderWidth: 1,
     borderColor: '#3E2723',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 3,
   },
   woodGrainStripe: {
     position: 'absolute',

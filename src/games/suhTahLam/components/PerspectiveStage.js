@@ -1,8 +1,7 @@
 /**
  * SUH TAH LAM - PerspectiveStage 3D Viewport
  *
- * Provides a 3D perspective camera, ambient lighting, depth sorting,
- * and ground plane coordinates for the Suh Tah Lam cultural arena.
+ * Provides a clean top-down board view for the Suh Tah Lam arena.
  *
  * Zero external native GL dependencies: Uses hardware-accelerated 3D matrix transforms
  * to guarantee 60 FPS crash-free performance across all Android, iOS, and Web devices.
@@ -17,50 +16,36 @@ export default function PerspectiveStage({
   style,
 }) {
   const cameraZoomAnim = useRef(new Animated.Value(1.0)).current;
-  const cameraPanYAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let targetZoom = 1.0;
-    let targetPanY = 0;
-
     if (cameraMode === 'wide') {
       targetZoom = 0.88;
-      targetPanY = 15;
     } else if (cameraMode === 'focused') {
       targetZoom = 1.15;
-      targetPanY = -15;
     }
 
-    Animated.parallel([
-      Animated.timing(cameraZoomAnim, {
-        toValue: targetZoom,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cameraPanYAnim, {
-        toValue: targetPanY,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.timing(cameraZoomAnim, {
+      toValue: targetZoom,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
   }, [cameraMode]);
 
   return (
     <View style={[styles.viewportContainer, style]}>
-      {/* 3D Camera Rig */}
+      {/* Fixed overhead board view */}
       <Animated.View
         style={[
           styles.cameraRig,
           {
             transform: [
-              { perspective: 950 },
               { scale: cameraZoomAnim },
-              { translateY: cameraPanYAnim },
             ],
           },
         ]}
       >
-        {/* Tilted 3D Ground World Stage */}
+        {/* Flat arena with no perspective distortion */}
         <View style={styles.groundWorldStage}>
           {children}
         </View>
@@ -76,7 +61,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#1B2B2C',
     borderRadius: 16,
   },
   cameraRig: {
@@ -90,10 +75,7 @@ const styles = StyleSheet.create({
     height: 260,
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [
-      { rotateX: '52deg' },
-      { rotateZ: '-4deg' },
-    ],
+    transform: [{ rotate: '0deg' }],
   },
 });
 
