@@ -4,223 +4,190 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
+  FlatList,
   StyleSheet,
-  ActivityIndicator,
+  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useLanguage } from '../context/LanguageContext';
-import { usePatient } from '../context/PatientContext';
-import { getAIResponse } from '../modules/aiData';
 
 export default function AIScreen() {
-  const { theme, isDarkMode } = useTheme();
-  const { t } = useLanguage();
-  const { patientId, patientName } = usePatient();
+  const { theme } = useTheme();
 
-  const [inputQuery, setInputQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
+  const [messages, setMessages] = useState([
     {
-      id: 'welcome',
-      sender: 'assistant',
-      text: t('ai.responses.default'),
+      id: '1',
+      sender: 'ai',
+      text: 'Hello! I am your AI Assistant. How can I help you today?',
     },
   ]);
 
-  const quickPrompts = [
-    { id: 'rahul', key: 'ai.questionRahul' },
-    { id: 'priya', key: 'ai.questionPriya' },
-    { id: 'schedule', key: 'ai.questionSchedule' },
-    { id: 'medicine', key: 'ai.questionMedicine' },
-  ];
+  const [input, setInput] = useState('');
 
-  const handleSend = (textToSend) => {
-    const query = (textToSend || inputQuery).trim();
-    if (!query) return;
+  const sendMessage = () => {
+    if (!input.trim()) return;
 
     const userMessage = {
       id: Date.now().toString(),
       sender: 'user',
-      text: query,
+      text: input.trim(),
     };
 
-    setChatMessages((prev) => [...prev, userMessage]);
-    setInputQuery('');
-    setLoading(true);
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
 
+    // Temporary AI response
     setTimeout(() => {
-      const responseText = getAIResponse(query, patientId);
-      const assistantMessage = {
+      const aiMessage = {
         id: (Date.now() + 1).toString(),
-        sender: 'assistant',
-        text: responseText,
+        sender: 'ai',
+        text: 'Thank you for your message. I am still learning!',
       };
-      setChatMessages((prev) => [...prev, assistantMessage]);
-      setLoading(false);
-    }, 400);
+
+      setMessages(prev => [...prev, aiMessage]);
+    }, 700);
+  };
+
+  const renderMessage = ({ item }) => {
+    const isUser = item.sender === 'user';
+
+    return (
+      <View
+        style={[
+          styles.messageRow,
+          isUser ? styles.userRow : styles.aiRow,
+        ]}
+      >
+        {!isUser && (
+          <View style={styles.aiIcon}>
+            <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+          </View>
+        )}
+
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.aiBubble,
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              {
+                color: isUser ? '#FFFFFF' : theme.text,
+              },
+            ]}
+          >
+            {item.text}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: theme.background },
+      ]}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header Banner */}
-          <View style={[styles.headerBanner, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-            <View style={[styles.headerIconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
-              <Ionicons name="chatbubbles" size={26} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: theme.text }]}>{t('ai.title')}</Text>
-              <Text style={[styles.subtitle, { color: theme.subText }]}>{t('ai.subtitle')}</Text>
-            </View>
-          </View>
 
-          {/* Suggested Quick Question Chips */}
-          <View style={styles.quickQuestionsSection}>
-            <Text style={[styles.sectionHeading, { color: theme.subText }]}>
-              {t('ai.commonQuestions')}
-            </Text>
-            <View style={styles.chipsContainer}>
-              {quickPrompts.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.promptChip,
-                    {
-                      backgroundColor: theme.cardBackground,
-                      borderColor: theme.cardBorder,
-                    },
-                  ]}
-                  onPress={() => handleSend(t(item.key))}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="bulb-outline" size={15} color={theme.primary} style={{ marginRight: 6 }} />
-                  <Text style={[styles.promptChipText, { color: theme.text }]}>
-                    {t(item.key)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Chat Messages */}
-          <View style={styles.chatArea}>
-            {chatMessages.map((msg) => {
-              const isUser = msg.sender === 'user';
-              return (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.messageRow,
-                    isUser ? styles.userRow : styles.assistantRow,
-                  ]}
-                >
-                  {!isUser && (
-                    <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-                      <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.messageBubble,
-                      isUser
-                        ? [styles.userBubble, { backgroundColor: theme.primary }]
-                        : [
-                            styles.assistantBubble,
-                            {
-                              backgroundColor: theme.cardBackground,
-                              borderColor: theme.cardBorder,
-                            },
-                          ],
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.messageText,
-                        { color: isUser ? '#FFFFFF' : theme.text },
-                      ]}
-                    >
-                      {msg.text}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-
-            {loading && (
-              <View style={[styles.messageRow, styles.assistantRow]}>
-                <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-                </View>
-                <View
-                  style={[
-                    styles.messageBubble,
-                    styles.assistantBubble,
-                    {
-                      backgroundColor: theme.cardBackground,
-                      borderColor: theme.cardBorder,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    },
-                  ]}
-                >
-                  <ActivityIndicator size="small" color={theme.primary} style={{ marginRight: 8 }} />
-                  <Text style={[styles.messageText, { color: theme.subText }]}>
-                    {t('ai.thinking')}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-
-        {/* Input Bar */}
+        {/* HEADER */}
         <View
           style={[
-            styles.inputBarContainer,
+            styles.header,
+            { borderBottomColor: theme.cardBorder || '#E2E8F0' },
+          ]}
+        >
+          <View style={styles.headerIcon}>
+            <Ionicons
+              name="sparkles"
+              size={22}
+              color="#FFFFFF"
+            />
+          </View>
+
+          <View>
+            <Text
+              style={[
+                styles.title,
+                { color: theme.text },
+              ]}
+            >
+              AI Assistant
+            </Text>
+
+            <Text
+              style={[
+                styles.subtitle,
+                { color: theme.subText },
+              ]}
+            >
+              Your personal memory assistant
+            </Text>
+          </View>
+        </View>
+
+        {/* CHAT */}
+        <FlatList
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.chatContainer}
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* INPUT */}
+        <View
+          style={[
+            styles.inputContainer,
             {
-              backgroundColor: theme.cardBackground,
-              borderTopColor: theme.cardBorder,
+              backgroundColor:
+                theme.cardBackground || '#FFFFFF',
+              borderColor:
+                theme.cardBorder || '#E2E8F0',
             },
           ]}
         >
           <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Type your message..."
+            placeholderTextColor={theme.subText || '#94A3B8'}
+            multiline
             style={[
-              styles.textInput,
+              styles.input,
+              { color: theme.text },
+            ]}
+          />
+
+          <TouchableOpacity
+            onPress={sendMessage}
+            disabled={!input.trim()}
+            style={[
+              styles.sendButton,
               {
-                backgroundColor: isDarkMode ? '#1F2937' : '#F9FAFB',
-                borderColor: theme.cardBorder,
-                color: theme.text,
+                backgroundColor: input.trim()
+                  ? '#16A34A'
+                  : '#CBD5E1',
               },
             ]}
-            placeholder={t('ai.placeholder')}
-            placeholderTextColor={theme.subText}
-            value={inputQuery}
-            onChangeText={setInputQuery}
-            onSubmitEditing={() => handleSend(inputQuery)}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, { backgroundColor: theme.primary }]}
-            onPress={() => handleSend(inputQuery)}
-            activeOpacity={0.8}
-            disabled={loading || !inputQuery.trim()}
           >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
+            <Ionicons
+              name="send"
+              size={20}
+              color="#FFFFFF"
+            />
           </TouchableOpacity>
         </View>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -230,122 +197,108 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  headerBanner: {
+
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
-  headerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
+
   title: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
-    marginBottom: 2,
   },
+
   subtitle: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  quickQuestionsSection: {
-    marginBottom: 16,
-  },
-  sectionHeading: {
     fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    marginTop: 2,
   },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+
+  chatContainer: {
+    padding: 18,
+    paddingBottom: 20,
   },
-  promptChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  promptChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  chatArea: {
-    marginTop: 8,
-    gap: 14,
-  },
+
   messageRow: {
     flexDirection: 'row',
+    marginBottom: 16,
     alignItems: 'flex-end',
-    gap: 8,
   },
+
   userRow: {
     justifyContent: 'flex-end',
   },
-  assistantRow: {
+
+  aiRow: {
     justifyContent: 'flex-start',
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+
+  aiIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
+    marginRight: 8,
   },
+
   messageBubble: {
-    maxWidth: '82%',
-    paddingHorizontal: 16,
+    maxWidth: '78%',
+    paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 18,
   },
+
   userBubble: {
-    borderBottomRightRadius: 4,
+    backgroundColor: '#A7E87A',
+    borderBottomRightRadius: 5,
   },
-  assistantBubble: {
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
+
+  aiBubble: {
+    backgroundColor: '#E8F0F7',
+    borderBottomLeftRadius: 5,
   },
+
   messageText: {
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
-  inputBarContainer: {
+
+  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    gap: 10,
-  },
-  textInput: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    paddingHorizontal: 16,
-    fontSize: 15,
+    alignItems: 'flex-end',
+    margin: 12,
+    padding: 8,
+    borderRadius: 25,
     borderWidth: 1,
   },
+
+  input: {
+    flex: 1,
+    minHeight: 42,
+    maxHeight: 100,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 16,
+  },
+
   sendButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
   },
