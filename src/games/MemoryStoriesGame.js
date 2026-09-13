@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 import {
   STORY_DATA,
   STORY_QUESTIONS,
@@ -28,7 +29,7 @@ const SCREENS = {
 
 export default function MemoryStoriesGame({ onExit }) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
 
   // Screen flow state
   const [screen, setScreen] = useState(SCREENS.STORY);
@@ -231,7 +232,7 @@ export default function MemoryStoriesGame({ onExit }) {
         <View
           style={[
             styles.headerBar,
-            { backgroundColor: colors.cardBg, borderBottomColor: colors.cardBorder },
+            { backgroundColor: colors.cardBg, borderBottomColor: colors.cardBorder, justifyContent: 'space-between' },
           ]}
         >
           <TouchableOpacity
@@ -246,6 +247,7 @@ export default function MemoryStoriesGame({ onExit }) {
               {t('games.memoryStories.backToGames')}
             </Text>
           </TouchableOpacity>
+          <LanguageSelector compact={true} />
         </View>
 
         <ScrollView
@@ -516,17 +518,20 @@ export default function MemoryStoriesGame({ onExit }) {
         </TouchableOpacity>
 
         {/* Read Story Button to re-read anytime without losing state */}
-        <TouchableOpacity
-          style={[styles.readStoryHeaderBtn, { borderColor: colors.primary }]}
-          onPress={() => setShowStoryModal(true)}
-          accessibilityRole="button"
-          accessibilityLabel={t('games.memoryStories.accessibility.readStoryBtn')}
-        >
-          <Ionicons name="book-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-          <Text style={[styles.readStoryHeaderText, { color: colors.primary }]}>
-            {t('games.memoryStories.readStoryBtn')}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <LanguageSelector compact={true} />
+          <TouchableOpacity
+            style={[styles.readStoryHeaderBtn, { borderColor: colors.primary, marginLeft: 8 }]}
+            onPress={() => setShowStoryModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('games.memoryStories.accessibility.readStoryBtn')}
+          >
+            <Ionicons name="book-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={[styles.readStoryHeaderText, { color: colors.primary }]}>
+              {t('games.memoryStories.readStoryBtn')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView

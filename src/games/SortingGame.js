@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -68,9 +68,9 @@ const SORTING_DATA = [
 const MAX_ROUNDS = 5;
 
 const DIFFICULTY_CONFIG = {
-  Easy: { categoryCount: 2, itemsPerCategory: 2, description: 'Gentle: 2 Categories • 4 Items' },
-  Medium: { categoryCount: 2, itemsPerCategory: 3, description: 'Standard: 2 Categories • 6 Items' },
-  Hard: { categoryCount: 3, itemsPerCategory: 3, description: 'Challenging: 3 Categories • 9 Items' },
+  Easy: { categoryCount: 2, itemsPerCategory: 2, descKey: 'games.sorting.gentleDesc', description: 'Gentle: 2 Categories • 4 Items' },
+  Medium: { categoryCount: 2, itemsPerCategory: 3, descKey: 'games.sorting.standardDesc', description: 'Standard: 2 Categories • 6 Items' },
+  Hard: { categoryCount: 3, itemsPerCategory: 3, descKey: 'games.sorting.challengingDesc', description: 'Challenging: 3 Categories • 9 Items' },
 };
 
 function generateRoundData(difficulty) {
@@ -108,58 +108,22 @@ export default function SortingGame({
   onComplete,
 }) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [gameState, setGameState] = useState('idle'); // 'idle' | 'playing' | 'gameover'
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [duration, setDuration] = useState(0);
   const [startTime, setStartTime] = useState(null);
-  const [statusKey, setStatusKey] = useState('desc');
+  const [statusDescriptor, setStatusDescriptor] = useState({ key: 'statusStart', fallback: 'Press "Start Game" to begin!', params: {} });
   
   const [currentRoundData, setCurrentRoundData] = useState(() => generateRoundData(initialDifficulty));
   const [sortedItemIds, setSortedItemIds] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [categoryError, setCategoryError] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
   const [wrongCategory, setWrongCategory] = useState(null);
 
   const timeoutsRef = useRef([]);
-
-  const getItemLabel = (id, fallback) => {
-    return t(`games.sortingGame.items.${id}`) || fallback || id;
-  };
-
-  const getCategoryLabel = (cat) => {
-    return t(`games.sortingGame.category_${cat}`) || cat;
-  };
-
-  const getDifficultyDesc = (diff) => {
-    if (diff === 'Easy') return t('games.sortingGame.easyDesc') || DIFFICULTY_CONFIG.Easy.description;
-    if (diff === 'Medium') return t('games.sortingGame.mediumDesc') || DIFFICULTY_CONFIG.Medium.description;
-    return t('games.sortingGame.hardDesc') || DIFFICULTY_CONFIG.Hard.description;
-  };
-
-  const getStatusText = () => {
-    switch (statusKey) {
-      case 'selectItemPrompt':
-        return t('games.sortingGame.selectItemPrompt');
-      case 'selectFirst':
-        return t('games.sortingGame.selectFirst');
-      case 'allSorted':
-        return t('games.sortingGame.allSorted');
-      case 'greatJob':
-        return t('games.supermarketGame.greatJob');
-      case 'keepGoing':
-        return t('games.supermarketGame.keepGoing');
-      case 'wrongCategory':
-        return t('games.sortingGame.wrongCategory');
-      case 'completeTitle':
-        return t('games.sortingGame.completeTitle');
-      case 'desc':
-      default:
-        return t('games.sortingGame.desc');
-    }
-  };
 
   const clearAllTimeouts = () => {
     timeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
@@ -185,6 +149,12 @@ export default function SortingGame({
     };
   }, [gameState, startTime]);
 
+  // Reactive status message
+  const statusMessage = useMemo(() => {
+    if (!statusDescriptor.key) return '';
+    return t(`games.sorting.${statusDescriptor.key}`, statusDescriptor.fallback, statusDescriptor.params);
+  }, [statusDescriptor, t, currentLanguage]);
+
   const startGame = () => {
     clearAllTimeouts();
     const now = Date.now();
@@ -194,11 +164,11 @@ export default function SortingGame({
     setRound(1);
     setSortedItemIds([]);
     setSelectedItemId(null);
-    setCategoryError(false);
+    setCategoryError('');
     setWrongCategory(null);
     setCurrentRoundData(generateRoundData(difficulty));
     setGameState('playing');
-    setStatusKey('selectItemPrompt');
+    setStatusDescriptor({ key: 'statusInstruction', fallback: 'Select an item, then tap its category.', params: {} });
   };
 
   const handleGameOver = (finalScore) => {
@@ -206,7 +176,7 @@ export default function SortingGame({
     setGameState('gameover');
     const finalDuration = startTime ? Math.max(1, Math.floor((Date.now() - startTime) / 1000)) : duration;
     setDuration(finalDuration);
-    setStatusKey('completeTitle');
+    setStatusDescriptor({ key: 'statusComplete', fallback: 'Sorting complete! Great job!', params: {} });
 
     const result = {
       score: finalScore,
@@ -234,7 +204,7 @@ export default function SortingGame({
   const handleCategoryPress = (categoryName) => {
     if (gameState !== 'playing') return;
     if (!selectedItemId) {
-      setStatusKey('selectFirst');
+      setStatusDescriptor({ key: 'statusSelectFirst', fallback: 'Please select an item to sort first.', params: {} });
       return;
     }
 
@@ -245,7 +215,7 @@ export default function SortingGame({
 
     if (item.category === categoryName) {
       // Correct!
-      setCategoryError(false);
+      setCategoryError('');
       setWrongCategory(null);
       const newSorted = [...sortedItemIds, item.id];
       setSortedItemIds(newSorted);
@@ -254,7 +224,7 @@ export default function SortingGame({
       setSelectedItemId(null);
       
       if (newSorted.length === currentRoundData.items.length) {
-        setStatusKey('allSorted');
+        setStatusDescriptor({ key: 'statusAllSorted', fallback: 'Great job! All sorted!', params: {} });
         
         const nextRound = round + 1;
         const delayTimer = setTimeout(() => {
@@ -264,32 +234,33 @@ export default function SortingGame({
             setRound(nextRound);
             setCurrentRoundData(generateRoundData(difficulty));
             setSortedItemIds([]);
-            setCategoryError(false);
+            setCategoryError('');
             setWrongCategory(null);
-            setStatusKey('selectItemPrompt');
+            setStatusDescriptor({ key: 'statusInstruction', fallback: 'Select an item, then tap its category.', params: {} });
           }
         }, 1500);
         timeoutsRef.current.push(delayTimer);
       } else {
-        setStatusKey('greatJob');
+        setStatusDescriptor({ key: 'statusGreat', fallback: 'Great job!', params: {} });
         const clearMsgTimer = setTimeout(() => {
-            if(gameState === 'playing') {
-                setStatusKey('keepGoing');
-            }
+          if (gameState === 'playing') {
+            setStatusDescriptor({ key: 'statusKeepGoing', fallback: 'Keep going!', params: {} });
+          }
         }, 1500);
         timeoutsRef.current.push(clearMsgTimer);
       }
     } else {
       // Wrong category!
+      const errorMessage = t('games.sorting.statusIncorrectCategory', 'That item belongs in a different category.');
       setWrongCategory(categoryName);
-      setCategoryError(true);
-      setStatusKey('wrongCategory');
+      setCategoryError(errorMessage);
+      setStatusDescriptor({ key: 'statusIncorrectCategory', fallback: errorMessage, params: {} });
       
       const wrongFeedbackTimer = setTimeout(() => {
-        if(gameState === 'playing') {
-            setCategoryError(false);
-            setWrongCategory(null);
-            setStatusKey('selectItemPrompt');
+        if (gameState === 'playing') {
+          setCategoryError('');
+          setWrongCategory(null);
+          setStatusDescriptor({ key: 'statusInstruction', fallback: 'Select an item, then tap its category.', params: {} });
         }
       }, 2500);
       timeoutsRef.current.push(wrongFeedbackTimer);
@@ -300,32 +271,30 @@ export default function SortingGame({
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Title */}
-        <Text style={[styles.title, { color: theme.text }]}>{t('games.sortingGame.title')}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{t('games.sorting.title', 'Category Sorting')}</Text>
 
         {/* Stats Header */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.round').toUpperCase()}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.round', 'ROUND')}</Text>
             <Text style={[styles.statValue, { color: theme.text }]}>
               {gameState === 'idle' ? '-' : `${round}/${MAX_ROUNDS}`}
             </Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.score').toUpperCase()}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.score', 'SCORE')}</Text>
             <Text style={[styles.statValue, { color: theme.text }]}>{score}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.time').toUpperCase()}</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>{duration}{t('common.seconds')}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.time', 'TIME')}</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>{duration}s</Text>
           </View>
         </View>
 
         {/* Difficulty Selector */}
         {gameState === 'idle' && (
           <View style={styles.difficultyContainer}>
-            <Text style={[styles.difficultyHeading, { color: theme.subText }]}>
-              {t('games.memoryMatchGame.selectDifficulty')}:
-            </Text>
+            <Text style={[styles.difficultyHeading, { color: theme.subText }]}>{t('games.sequence.selectDifficulty', 'Select Difficulty:')}</Text>
             <View style={styles.difficultyButtons}>
               {['Easy', 'Medium', 'Hard'].map((diff) => (
                 <TouchableOpacity
@@ -348,13 +317,13 @@ export default function SortingGame({
                       difficulty === diff && styles.difficultyButtonTextActive,
                     ]}
                   >
-                    {t(`common.${diff.toLowerCase()}`) || diff}
+                    {diff === 'Easy' ? t('common.easy', 'Easy') : diff === 'Medium' ? t('common.medium', 'Medium') : t('common.hard', 'Hard')}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <Text style={[styles.difficultySubtitle, { color: theme.primary }]}>
-              {getDifficultyDesc(difficulty)}
+              {t(DIFFICULTY_CONFIG[difficulty]?.descKey, DIFFICULTY_CONFIG[difficulty]?.description)}
             </Text>
           </View>
         )}
@@ -364,12 +333,12 @@ export default function SortingGame({
           style={[
             styles.statusBanner,
             { backgroundColor: isDarkMode ? '#1e293b' : '#E0F2FE', borderColor: isDarkMode ? '#334155' : '#BAE6FD' },
-            (statusKey === 'allSorted' || statusKey === 'greatJob') && (isDarkMode ? { backgroundColor: '#143823', borderColor: '#16a34a' } : styles.bannerCorrect),
-            statusKey === 'wrongCategory' && (isDarkMode ? { backgroundColor: '#450a0a', borderColor: '#dc2626' } : styles.bannerIncorrect),
+            (statusDescriptor.key === 'statusAllSorted' || statusDescriptor.key === 'statusGreat') && (isDarkMode ? { backgroundColor: '#143823', borderColor: '#16a34a' } : styles.bannerCorrect),
+            statusDescriptor.key === 'statusIncorrectCategory' && (isDarkMode ? { backgroundColor: '#450a0a', borderColor: '#dc2626' } : styles.bannerIncorrect),
             gameState === 'gameover' && (isDarkMode ? { backgroundColor: '#1f2937', borderColor: theme.cardBorder } : styles.bannerGameOver),
           ]}
         >
-          <Text style={[styles.statusText, { color: theme.text }]}>{getStatusText()}</Text>
+          <Text style={[styles.statusText, { color: theme.text }]}>{statusMessage}</Text>
         </View>
 
         {/* Play Area */}
@@ -377,13 +346,12 @@ export default function SortingGame({
           <View style={styles.playArea}>
             
             {/* Items Grid */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              {t('games.sortingGame.step1')}
-            </Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('games.sorting.step1', '1. Tap an object to select it:')}</Text>
             <View style={[styles.itemsGrid, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
               {currentRoundData.items.map(item => {
                 const isSorted = sortedItemIds.includes(item.id);
                 const isSelected = selectedItemId === item.id;
+                const itemLabel = t(`games.sorting.items.${item.id}`, item.label);
                 
                 return (
                   <TouchableOpacity
@@ -401,6 +369,8 @@ export default function SortingGame({
                     onPress={() => handleItemPress(item)}
                     activeOpacity={0.7}
                     disabled={isSorted}
+                    accessibilityRole="button"
+                    accessibilityLabel={itemLabel}
                   >
                     <MaterialCommunityIcons name={item.icon} size={36} color={isSorted ? theme.subText : theme.primary} style={{ marginBottom: 4 }} />
                     <Text
@@ -411,7 +381,7 @@ export default function SortingGame({
                         isSorted && styles.opacityLow,
                       ]}
                     >
-                      {getItemLabel(item.id, item.label)}
+                      {itemLabel}
                     </Text>
                     {isSorted && (
                       <View style={styles.sortedOverlay}>
@@ -424,50 +394,53 @@ export default function SortingGame({
             </View>
 
             {/* Categories */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              {t('games.sortingGame.step2')}
-            </Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('games.sorting.step2', '2. Tap the correct category:')}</Text>
             <View style={styles.categoriesRow}>
-              {currentRoundData.categories.map(category => (
-                <TouchableOpacity
-                  key={category}
-                  style={[
-                    styles.categoryCard,
-                    {
-                      backgroundColor: isDarkMode ? theme.cardBackground : '#E0E7FF',
-                      borderColor: isDarkMode ? theme.cardBorder : '#A5B4FC',
-                    },
-                    // Slightly highlight categories if an item is selected to prompt action
-                    selectedItemId && styles.categoryCardPrompt,
-                    selectedItemId && {
-                      backgroundColor: isDarkMode ? '#334155' : '#DBEAFE',
-                      borderColor: isDarkMode ? '#60A5FA' : '#2563EB',
-                    },
-                    wrongCategory === category && {
-                      backgroundColor: isDarkMode ? '#450A0A' : '#FEE2E2',
-                      borderColor: isDarkMode ? '#F87171' : '#DC2626',
-                    },
-                  ]}
-                  onPress={() => handleCategoryPress(category)}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={CATEGORY_ICONS[category] || 'folder'}
-                    size={24}
-                    color={wrongCategory === category ? '#EF4444' : (selectedItemId ? theme.primary : theme.subText)}
-                    style={{ marginBottom: 4 }}
-                  />
-                  <Text
+              {currentRoundData.categories.map(category => {
+                const categoryLabel = t(`games.sorting.categories.${category}`, category);
+                return (
+                  <TouchableOpacity
+                    key={category}
                     style={[
-                      styles.categoryText,
-                      { color: theme.text },
-                      wrongCategory === category && { color: isDarkMode ? '#FCA5A5' : '#991B1B' },
+                      styles.categoryCard,
+                      {
+                        backgroundColor: isDarkMode ? theme.cardBackground : '#E0E7FF',
+                        borderColor: isDarkMode ? theme.cardBorder : '#A5B4FC',
+                      },
+                      // Slightly highlight categories if an item is selected to prompt action
+                      selectedItemId && styles.categoryCardPrompt,
+                      selectedItemId && {
+                        backgroundColor: isDarkMode ? '#334155' : '#DBEAFE',
+                        borderColor: isDarkMode ? '#60A5FA' : '#2563EB',
+                      },
+                      wrongCategory === category && {
+                        backgroundColor: isDarkMode ? '#450A0A' : '#FEE2E2',
+                        borderColor: isDarkMode ? '#F87171' : '#DC2626',
+                      },
                     ]}
+                    onPress={() => handleCategoryPress(category)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={categoryLabel}
                   >
-                    {getCategoryLabel(category)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <MaterialCommunityIcons
+                      name={CATEGORY_ICONS[category] || 'folder'}
+                      size={24}
+                      color={wrongCategory === category ? '#EF4444' : (selectedItemId ? theme.primary : theme.subText)}
+                      style={{ marginBottom: 4 }}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        { color: theme.text },
+                        wrongCategory === category && { color: isDarkMode ? '#FCA5A5' : '#991B1B' },
+                      ]}
+                    >
+                      {categoryLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             {categoryError ? (
               <Text
@@ -480,7 +453,7 @@ export default function SortingGame({
                   },
                 ]}
               >
-                {t('games.sortingGame.wrongCategory')}
+                {categoryError}
               </Text>
             ) : null}
 
@@ -490,19 +463,21 @@ export default function SortingGame({
         {/* Game Over Summary */}
         {gameState === 'gameover' && (
           <View style={[styles.gameOverCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-            <Text style={styles.gameOverTitle}>{t('games.sortingGame.completeTitle')}</Text>
+            <Text style={styles.gameOverTitle}>{t('games.sorting.sortingComplete', 'Sorting Complete!')}</Text>
             <View style={styles.resultRow}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sortingGame.totalSorted')}</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sorting.totalSorted', 'Total Items Sorted:')}</Text>
               <Text style={[styles.resultValue, { color: theme.text }]}>{score}</Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.duration')}:</Text>
-              <Text style={[styles.resultValue, { color: theme.text }]}>{duration} {t('common.seconds')}</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sequence.duration', 'Duration:')}</Text>
+              <Text style={[styles.resultValue, { color: theme.text }]}>
+                {t('games.sequence.seconds', `${duration} seconds`, { duration })}
+              </Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.difficulty')}:</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sequence.difficulty', 'Difficulty:')}</Text>
               <Text style={[styles.resultValue, { color: theme.text }]}>
-                {t(`common.${difficulty.toLowerCase()}`) || difficulty}
+                {difficulty === 'Easy' ? t('common.easy', 'Easy') : difficulty === 'Medium' ? t('common.medium', 'Medium') : t('common.hard', 'Hard')}
               </Text>
             </View>
           </View>
@@ -516,13 +491,21 @@ export default function SortingGame({
           ]}
           onPress={startGame}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={
+            gameState === 'idle'
+              ? t('common.startGame', 'Start Game')
+              : gameState === 'gameover'
+              ? t('common.playAgain', 'Play Again')
+              : t('common.restartGame', 'Restart Game')
+          }
         >
           <Text style={styles.primaryButtonText}>
             {gameState === 'idle'
-              ? t('common.startGame')
+              ? t('common.startGame', 'Start Game')
               : gameState === 'gameover'
-              ? t('common.playAgain')
-              : t('common.restartGame')}
+              ? t('common.playAgain', 'Play Again')
+              : t('common.restartGame', 'Restart Game')}
           </Text>
         </TouchableOpacity>
 

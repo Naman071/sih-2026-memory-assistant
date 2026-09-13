@@ -15,6 +15,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePatient } from '../context/PatientContext';
 import { PerformanceTracker } from '../modules/performance';
+import LanguageSelector from '../components/LanguageSelector';
 
 // Screen states
 const SCREENS = {
@@ -2072,26 +2073,29 @@ export default function DhopkhelGame({ onExit }) {
           </Text>
         </TouchableOpacity>
 
-        {/* Audio Mute Quick Toggle */}
-        <TouchableOpacity
-          style={[
-            styles.muteQuickToggle,
-            { backgroundColor: audio ? colors.cardBg : '#EF4444' },
-          ]}
-          onPress={() => setAudio((prev) => !prev)}
-          accessibilityRole="button"
-          accessibilityLabel={
-            audio
-              ? t('games.dhopkhel.accessibilityMuteAudio')
-              : t('games.dhopkhel.accessibilityUnmuteAudio')
-          }
-        >
-          <Ionicons
-            name={audio ? 'volume-high-outline' : 'volume-mute'}
-            size={22}
-            color={audio ? colors.text : '#FFFFFF'}
-          />
-        </TouchableOpacity>
+        {/* Audio Mute Quick Toggle and Language Selector */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <LanguageSelector compact={true} />
+          <TouchableOpacity
+            style={[
+              styles.muteQuickToggle,
+              { backgroundColor: audio ? colors.cardBg : '#EF4444', marginLeft: 8 },
+            ]}
+            onPress={() => setAudio((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              audio
+                ? t('games.dhopkhel.accessibilityMuteAudio')
+                : t('games.dhopkhel.accessibilityUnmuteAudio')
+            }
+          >
+            <Ionicons
+              name={audio ? 'volume-high-outline' : 'volume-mute'}
+              size={22}
+              color={audio ? colors.text : '#FFFFFF'}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Render Active Screen */}

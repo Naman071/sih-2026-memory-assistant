@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,18 +18,21 @@ const LEVELS = {
     objectCount: 4,
     storyComplexity: 'simple',
     timeBonus: 5,
+    descKey: 'games.memoryPath.gentleDesc',
     description: 'Gentle: 4 Objects • 6s Reading Time',
   },
   Medium: {
     objectCount: 6,
     storyComplexity: 'moderate',
     timeBonus: 3,
+    descKey: 'games.memoryPath.standardDesc',
     description: 'Standard: 6 Objects • 4.5s Reading Time',
   },
   Hard: {
     objectCount: 8,
     storyComplexity: 'complex',
     timeBonus: 1,
+    descKey: 'games.memoryPath.challengingDesc',
     description: 'Challenging: 8 Objects • 3s Reading Time',
   },
 };
@@ -52,12 +54,54 @@ const OBJECTS = {
   umbrella: { icon: 'umbrella', label: 'Umbrella' },
 };
 
-// ─── Story IDs ───
+// ─── Story Database ───
 
-const STORY_IDS = {
-  simple: ['s1', 's2', 's3'],
-  moderate: ['s4', 's5', 's6'],
-  complex: ['s7', 's8', 's9'],
+const STORIES = {
+  // Simple stories (Easy mode)
+  simple: [
+    {
+      story: "Rahul called earlier. He said he left his {object} on the table.",
+      question: "What did Rahul leave on the table?",
+    },
+    {
+      story: "Priya is coming over. She loves the {object} in the garden.",
+      question: "What does Priya love in the garden?",
+    },
+    {
+      story: "Your grandson, Amit, forgot his {object} in the living room.",
+      question: "What did Amit forget in the living room?",
+    },
+  ],
+  // Moderate stories (Medium mode)
+  moderate: [
+    {
+      story: "Rahul called and said he was looking for his {object}. He thinks he left it near the window.",
+      question: "What is Rahul looking for?",
+    },
+    {
+      story: "Priya is visiting today. She asked if she could borrow your {object}.",
+      question: "What does Priya want to borrow?",
+    },
+    {
+      story: "Amit came by this morning. He said he would leave his {object} on the shelf for you.",
+      question: "What did Amit leave on the shelf?",
+    },
+  ],
+  // Complex stories (Hard mode)
+  complex: [
+    {
+      story: "Rahul called twice today. First he said he'd visit, then he realized he lost his {object}. He thinks he left it in the kitchen, but he's not sure.",
+      question: "What did Rahul lose?",
+    },
+    {
+      story: "Priya is bringing dinner tonight. She asked if you still have her {object} from last time. She said it was on the coffee table.",
+      question: "What does Priya want back?",
+    },
+    {
+      story: "Amit is coming to pick up his {object} tomorrow. He said he'd leave yours on the dining table when he arrives.",
+      question: "What is Amit coming to pick up?",
+    },
+  ],
 };
 
 // ─── Main Component ───
@@ -69,7 +113,7 @@ export default function MemoryPathGame({
   onGameOver,
 }) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [gameState, setGameState] = useState('idle'); // idle | showing | playing | gameover | story
   const [score, setScore] = useState(0);
@@ -79,55 +123,13 @@ export default function MemoryPathGame({
 
   const [objects, setObjects] = useState([]);
   const [correctObject, setCorrectObject] = useState(null);
-  const [currentStoryId, setCurrentStoryId] = useState(null);
+  const [currentStoryData, setCurrentStoryData] = useState(null);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [feedback, setFeedback] = useState(null);
-  const [statusKey, setStatusKey] = useState('desc');
+  const [statusDescriptor, setStatusDescriptor] = useState({ key: 'statusStart', fallback: 'Press "Start Game" to begin!', params: {} });
 
   const timerRef = useRef(null);
   const storyTimerRef = useRef(null);
-
-  const getObjectLabel = (objKey) => {
-    return t(`games.memoryPathGame.objects.${objKey}`) || OBJECTS[objKey]?.label || objKey;
-  };
-
-  const getDifficultyDesc = (diff) => {
-    if (diff === 'Easy') return t('games.memoryPathGame.easyDesc') || LEVELS.Easy.description;
-    if (diff === 'Medium') return t('games.memoryPathGame.mediumDesc') || LEVELS.Medium.description;
-    return t('games.memoryPathGame.hardDesc') || LEVELS.Hard.description;
-  };
-
-  const getStoryText = () => {
-    if (!currentStoryId || !correctObject) return '';
-    return t(`games.memoryPathGame.stories.${currentStoryId}_story`, {
-      object: getObjectLabel(correctObject).toLowerCase(),
-    });
-  };
-
-  const getQuestionText = () => {
-    if (!currentStoryId) return '';
-    return t(`games.memoryPathGame.stories.${currentStoryId}_q`);
-  };
-
-  const getStatusText = () => {
-    switch (statusKey) {
-      case 'listenCarefully':
-        return t('games.memoryPathGame.listenCarefully');
-      case 'readingStory':
-        return t('games.memoryPathGame.readingStory');
-      case 'tapCorrectObject':
-        return t('games.memoryPathGame.tapCorrectObject');
-      case 'correct':
-        return t('common.correct');
-      case 'tryAgainNext':
-        return t('games.memoryPathGame.tryAgainNext');
-      case 'gameOver':
-        return t('games.memoryPathGame.gameOver');
-      case 'desc':
-      default:
-        return t('games.memoryMatchGame.pressStart');
-    }
-  };
 
   // ─── Cleanup ───
   useEffect(() => {
@@ -139,15 +141,43 @@ export default function MemoryPathGame({
 
   // ─── Timer ───
   useEffect(() => {
+    let interval = null;
     if ((gameState === 'story' || gameState === 'playing') && startTime) {
-      timerRef.current = setInterval(() => {
+      interval = setInterval(() => {
         setDuration(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (interval) clearInterval(interval);
     };
   }, [gameState, startTime]);
+
+  // Reactive status message
+  const statusMessage = useMemo(() => {
+    if (!statusDescriptor.key) return '';
+    return t(`games.memoryPath.${statusDescriptor.key}`, statusDescriptor.fallback, statusDescriptor.params);
+  }, [statusDescriptor, t, currentLanguage]);
+
+  // Reactive story & question text
+  const storyText = useMemo(() => {
+    if (!currentStoryData) return '';
+    const objLabel = t(`games.memoryPath.objects.${currentStoryData.correctObjectKey}`, OBJECTS[currentStoryData.correctObjectKey]?.label || '').toLowerCase();
+    const fallbackTemplate = STORIES[currentStoryData.complexity]?.[currentStoryData.storyIndex]?.story || '';
+    return t(
+      `games.memoryPath.stories.${currentStoryData.complexity}_${currentStoryData.storyIndex}_story`,
+      fallbackTemplate.replace('{object}', objLabel),
+      { object: objLabel }
+    );
+  }, [currentStoryData, t, currentLanguage]);
+
+  const questionText = useMemo(() => {
+    if (!currentStoryData) return '';
+    const fallbackQuestion = STORIES[currentStoryData.complexity]?.[currentStoryData.storyIndex]?.question || '';
+    return t(
+      `games.memoryPath.stories.${currentStoryData.complexity}_${currentStoryData.storyIndex}_question`,
+      fallbackQuestion
+    );
+  }, [currentStoryData, t, currentLanguage]);
 
   // ─── Start Game ───
   const startGame = () => {
@@ -158,7 +188,7 @@ export default function MemoryPathGame({
     setGameState('story');
     setFeedback(null);
     setSelectedObjectId(null);
-    setStatusKey('listenCarefully');
+    setStatusDescriptor({ key: 'statusRead', fallback: 'Listen carefully...', params: {} });
     startNewRound();
   };
 
@@ -173,22 +203,26 @@ export default function MemoryPathGame({
     setObjects(selected);
     setCorrectObject(correct);
 
-    // Pick a story ID
-    const storyPool = STORY_IDS[config.storyComplexity] || STORY_IDS.simple;
-    const randomStoryId = storyPool[Math.floor(Math.random() * storyPool.length)];
-    setCurrentStoryId(randomStoryId);
+    // Pick a story index
+    const storyPool = STORIES[config.storyComplexity] || STORIES.simple;
+    const randomIndex = Math.floor(Math.random() * storyPool.length);
+    setCurrentStoryData({
+      complexity: config.storyComplexity,
+      storyIndex: randomIndex,
+      correctObjectKey: correct,
+    });
 
     setGameState('story');
     setSelectedObjectId(null);
     setFeedback(null);
-    setStatusKey('readingStory');
+    setStatusDescriptor({ key: 'statusRead', fallback: 'Reading story...', params: {} });
 
     // Auto-advance to playing after story duration
     const storyDuration = difficulty === 'Easy' ? 6000 : difficulty === 'Medium' ? 4500 : 3000;
     if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
     storyTimerRef.current = setTimeout(() => {
       setGameState('playing');
-      setStatusKey('tapCorrectObject');
+      setStatusDescriptor({ key: 'statusRecall', fallback: 'Tap the correct object!', params: {} });
     }, storyDuration);
   };
 
@@ -202,8 +236,8 @@ export default function MemoryPathGame({
       // Correct!
       const newScore = score + 1;
       setScore(newScore);
-      setFeedback({ type: 'correct' });
-      setStatusKey('correct');
+      setFeedback({ type: 'correct', message: t('games.memoryPath.statusCorrect', 'Great job!') });
+      setStatusDescriptor({ key: 'statusCorrect', fallback: 'Correct!', params: {} });
 
       // Move to next round after delay
       setTimeout(() => {
@@ -216,12 +250,13 @@ export default function MemoryPathGame({
       }, 1200);
     } else {
       // Wrong!
+      const correctLabel = t(`games.memoryPath.objects.${correctObject}`, OBJECTS[correctObject]?.label || '');
       setFeedback({
         type: 'wrong',
+        message: `${t('games.memoryPath.statusIncorrect', 'Try again next round!')} (${correctLabel})`,
       });
-      setStatusKey('tryAgainNext');
+      setStatusDescriptor({ key: 'statusIncorrect', fallback: 'Try again next round!', params: {} });
 
-      // End game after wrong answer
       setTimeout(() => {
         endGame(score);
       }, 2000);
@@ -233,7 +268,7 @@ export default function MemoryPathGame({
     if (timerRef.current) clearInterval(timerRef.current);
     if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
     setGameState('gameover');
-    setStatusKey('gameOver');
+    setStatusDescriptor({ key: 'statusComplete', fallback: 'Game Over!', params: {} });
 
     const finalDuration = startTime
       ? Math.max(1, Math.floor((Date.now() - startTime) / 1000))
@@ -257,31 +292,29 @@ export default function MemoryPathGame({
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>{t('games.memoryPathGame.title')}</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{t('games.memoryPath.title', 'Memory Path')}</Text>
         </View>
 
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.round').toUpperCase()}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.round', 'ROUND')}</Text>
             <Text style={[styles.statValue, { color: theme.text }]}>{gameState === 'idle' ? '-' : round}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.score').toUpperCase()}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.score', 'SCORE')}</Text>
             <Text style={[styles.statValue, { color: theme.text }]}>{score}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.time').toUpperCase()}</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>{duration}{t('common.seconds')}</Text>
+            <Text style={[styles.statLabel, { color: theme.subText }]}>{t('common.time', 'TIME')}</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>{duration}s</Text>
           </View>
         </View>
 
         {/* Difficulty Selector (idle only) */}
         {gameState === 'idle' && (
           <View style={styles.difficultyContainer}>
-            <Text style={[styles.difficultyHeading, { color: theme.subText }]}>
-              {t('games.memoryMatchGame.selectDifficulty')}:
-            </Text>
+            <Text style={[styles.difficultyHeading, { color: theme.subText }]}>{t('games.sequence.selectDifficulty', 'Select Difficulty:')}</Text>
             <View style={styles.difficultyButtons}>
               {['Easy', 'Medium', 'Hard'].map((diff) => (
                 <TouchableOpacity
@@ -299,13 +332,13 @@ export default function MemoryPathGame({
                       difficulty === diff && styles.difficultyButtonTextActive,
                     ]}
                   >
-                    {t(`common.${diff.toLowerCase()}`) || diff}
+                    {diff === 'Easy' ? t('common.easy', 'Easy') : diff === 'Medium' ? t('common.medium', 'Medium') : t('common.hard', 'Hard')}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <Text style={[styles.difficultySubtitle, { color: theme.primary }]}>
-              {getDifficultyDesc(difficulty)}
+              {t(LEVELS[difficulty]?.descKey, LEVELS[difficulty]?.description)}
             </Text>
           </View>
         )}
@@ -320,16 +353,16 @@ export default function MemoryPathGame({
           ]}
         >
           <Text style={[styles.statusText, { color: isDarkMode ? '#F8FAFC' : '#1E293B' }]}>
-            {getStatusText()}
+            {statusMessage}
           </Text>
         </View>
 
         {/* Story Display */}
-        {gameState === 'story' && currentStoryId && (
+        {gameState === 'story' && currentStoryData && (
           <View style={[styles.storyContainer, { backgroundColor: isDarkMode ? '#292524' : '#FEF3C7' }]}>
-            <Text style={[styles.storyText, { color: theme.text }]}>{getStoryText()}</Text>
+            <Text style={[styles.storyText, { color: theme.text }]}>{storyText}</Text>
             <Text style={[styles.questionText, { color: isDarkMode ? '#FCD34D' : '#92400E' }]}>
-              {getQuestionText()}
+              {questionText}
             </Text>
           </View>
         )}
@@ -338,31 +371,36 @@ export default function MemoryPathGame({
         {gameState !== 'idle' && gameState !== 'gameover' && (
           <View style={styles.objectsContainer}>
             <View style={styles.objectsGrid}>
-              {objects.map((objKey) => (
-                <TouchableOpacity
-                  key={objKey}
-                  style={[
-                    styles.objectButton,
-                    {
-                      backgroundColor: theme.cardBackground,
-                      borderColor: theme.cardBorder,
-                      borderWidth: 1,
-                    },
-                    selectedObjectId === objKey &&
-                      (feedback?.type === 'correct'
-                        ? styles.objectButtonCorrect
-                        : feedback?.type === 'wrong'
-                        ? styles.objectButtonWrong
-                        : {}),
-                    gameState !== 'playing' && styles.objectButtonDisabled,
-                  ]}
-                  onPress={() => handleObjectPress(objKey)}
-                  disabled={gameState !== 'playing'}
-                >
-                  <MaterialCommunityIcons name={OBJECTS[objKey].icon} size={34} color={theme.primary} style={{ marginBottom: 4 }} />
-                  <Text style={[styles.objectLabel, { color: theme.text }]}>{getObjectLabel(objKey)}</Text>
-                </TouchableOpacity>
-              ))}
+              {objects.map((objKey) => {
+                const objLabel = t(`games.memoryPath.objects.${objKey}`, OBJECTS[objKey]?.label || '');
+                return (
+                  <TouchableOpacity
+                    key={objKey}
+                    style={[
+                      styles.objectButton,
+                      {
+                        backgroundColor: theme.cardBackground,
+                        borderColor: theme.cardBorder,
+                        borderWidth: 1,
+                      },
+                      selectedObjectId === objKey &&
+                        (feedback?.type === 'correct'
+                          ? styles.objectButtonCorrect
+                          : feedback?.type === 'wrong'
+                          ? styles.objectButtonWrong
+                          : {}),
+                      gameState !== 'playing' && styles.objectButtonDisabled,
+                    ]}
+                    onPress={() => handleObjectPress(objKey)}
+                    disabled={gameState !== 'playing'}
+                    accessibilityRole="button"
+                    accessibilityLabel={objLabel}
+                  >
+                    <MaterialCommunityIcons name={OBJECTS[objKey]?.icon || 'help'} size={34} color={theme.primary} style={{ marginBottom: 4 }} />
+                    <Text style={[styles.objectLabel, { color: theme.text }]}>{objLabel}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
@@ -381,9 +419,7 @@ export default function MemoryPathGame({
                 feedback.type === 'correct' ? styles.feedbackTextCorrect : styles.feedbackTextWrong,
               ]}
             >
-              {feedback.type === 'correct'
-                ? t('games.supermarketGame.greatJob')
-                : t('games.memoryPathGame.correctAnswerWas', { object: getObjectLabel(correctObject) })}
+              {feedback.message}
             </Text>
           </View>
         )}
@@ -391,25 +427,23 @@ export default function MemoryPathGame({
         {/* Game Over Summary */}
         {gameState === 'gameover' && (
           <View style={[styles.gameOverContainer, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.gameOverTitle, { color: theme.text }]}>{t('games.memoryPathGame.gameOver')}</Text>
+            <Text style={[styles.gameOverTitle, { color: theme.text }]}>{t('games.memoryPath.gameComplete', 'Journey Complete!')}</Text>
             <View style={[styles.resultRow, { borderBottomColor: theme.cardBorder }]}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.memoryPathGame.finalScore')}</Text>
-              <Text style={[styles.resultValue, { color: theme.text }]}>
-                {t('games.memoryPathGame.objectsCount', { count: score })}
-              </Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sequence.finalScore', 'Final Score:')}</Text>
+              <Text style={[styles.resultValue, { color: theme.text }]}>{score} objects</Text>
             </View>
             <View style={[styles.resultRow, { borderBottomColor: theme.cardBorder }]}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.memoryPathGame.rounds')}</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.round', 'Rounds:')}</Text>
               <Text style={[styles.resultValue, { color: theme.text }]}>{round - 1}</Text>
             </View>
             <View style={[styles.resultRow, { borderBottomColor: theme.cardBorder }]}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.time')}:</Text>
-              <Text style={[styles.resultValue, { color: theme.text }]}>{duration}{t('common.seconds')}</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.time', 'Time:')}</Text>
+              <Text style={[styles.resultValue, { color: theme.text }]}>{duration}s</Text>
             </View>
             <View style={[styles.resultRow, { borderBottomColor: theme.cardBorder }]}>
-              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('common.difficulty')}:</Text>
+              <Text style={[styles.resultLabel, { color: theme.subText }]}>{t('games.sequence.difficulty', 'Difficulty:')}</Text>
               <Text style={[styles.resultValue, { color: theme.text }]}>
-                {t(`common.${difficulty.toLowerCase()}`) || difficulty}
+                {difficulty === 'Easy' ? t('common.easy', 'Easy') : difficulty === 'Medium' ? t('common.medium', 'Medium') : t('common.hard', 'Hard')}
               </Text>
             </View>
           </View>
@@ -422,13 +456,21 @@ export default function MemoryPathGame({
             gameState === 'idle' ? styles.actionButtonStart : styles.actionButtonSecondary,
           ]}
           onPress={startGame}
+          accessibilityRole="button"
+          accessibilityLabel={
+            gameState === 'idle'
+              ? t('common.startGame', 'Start Game')
+              : gameState === 'gameover'
+              ? t('common.playAgain', 'Play Again')
+              : t('common.restartGame', 'Restart')
+          }
         >
           <Text style={styles.actionButtonText}>
             {gameState === 'idle'
-              ? t('common.startGame')
+              ? t('common.startGame', 'Start Game')
               : gameState === 'gameover'
-              ? t('common.playAgain')
-              : t('common.restartGame')}
+              ? t('common.playAgain', 'Play Again')
+              : t('common.restartGame', 'Restart')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
