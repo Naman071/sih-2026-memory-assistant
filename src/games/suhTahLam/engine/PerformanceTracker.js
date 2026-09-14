@@ -6,6 +6,7 @@
  * - Domain-specific updates (visual, sequence, spatial, change, movement)
  * - Adaptive difficulty evaluation via DifficultyEngine
  * - Offline persistence via LocalPerformanceStorage
+ * - Strictly real attempts, zero-fabrication metrics
  *
  * NOTE: Caregiver metrics are computed accurately, but kept invisible to
  * the patient who receives only warm encouragement.
@@ -14,6 +15,7 @@
 import { CognitiveProfile } from './CognitiveProfile.js';
 import { DifficultyEngine, defaultDifficultyEngine } from './DifficultyEngine.js';
 import { LocalPerformanceStorage, defaultLocalStorage } from '../storage/LocalPerformanceStorage.js';
+import { validateRoundResult } from './CognitiveVitalityIndex.js';
 
 export class PerformanceTracker {
   constructor({
@@ -35,14 +37,19 @@ export class PerformanceTracker {
     this.initialized = false;
   }
 
-  async initialize({ playerId = 'P001', initialDifficulty = 'easy' } = {}) {
-    this.playerId = playerId;
+  async initialize({ playerId, initialDifficulty = 'easy' } = {}) {
+    if (playerId) {
+      this.playerId = playerId;
+    }
     const storedProfile = await this.storage.getProfile(this.gameId, this.playerId);
     this.roundHistory = await this.storage.getRoundHistory(this.gameId, this.playerId, 50);
 
     const difficulty = storedProfile.currentDifficulty || initialDifficulty;
-    this.profile = storedProfile;
-    this.cognitiveProfile = new CognitiveProfile(storedProfile.cognitiveScores || {});
+    this.profile = {
+      ...storedProfile,
+      playerId: this.playerId,
+    };
+    this.cognitiveProfile = new CognitiveProfile(this.profile);
     this.initialized = true;
 
     return {
@@ -51,26 +58,47 @@ export class PerformanceTracker {
     };
   }
 
-  startRound({ difficulty = 'easy', sequenceId = null, metadata = {} } = {}) {
+  startRound({
+    difficulty = 'easy',
+    sequenceId = null,
+    sessionId = null,
+    metadata = {},
+  } = {}) {
     const roundNumber = (this.roundHistory.length || 0) + 1;
     this.interactionStartTimestamp = null;
 
     this.activeRound = {
       roundNumber,
+      sessionId: sessionId || null,
+      playerId: this.playerId,
+      gameId: this.gameId,
+      mode: metadata.mode || 'standard',
       difficulty,
       sequenceId,
       startedAt: new Date().toISOString(),
+      completedAt: null,
+      status: 'active',
       events: [],
       attempts: 0,
       correctAttempts: 0,
       incorrectAttempts: 0,
+      questionsTotal: 0,
+      questionsCorrect: 0,
+      accuracy: null,
       responseTimesMs: [],
+      responseTimesSec: [],
+      averageResponseTimeSec: null,
+      responseTimeMs: null,
+      score: null,
+      performanceScore: null,
       domainScores: {},
       isCorrect: true,
+      isAbandoned: false,
+      eligibleForCVI: false,
       metadata,
     };
 
-    return this.activeRound;
+    return { ...this.activeRound };
   }
 
   recordRecallStart() {
@@ -87,7 +115,14 @@ export class PerformanceTracker {
     });
   }
 
-  recordAnswer({ domain = 'visual', questionId, chosenOption, correctOption, isCorrect, responseTimeMs = null }) {
+  recordAnswer({
+    domain = 'visual',
+    questionId,
+    chosenOption,
+    correctOption,
+    isCorrect,
+    responseTimeMs = null,
+  }) {
     if (!this.activeRound) return null;
 
     let responseTime = responseTimeMs;
@@ -96,18 +131,22 @@ export class PerformanceTracker {
     }
 
     this.activeRound.attempts += 1;
+    this.activeRound.questionsTotal += 1;
+
     if (isCorrect) {
       this.activeRound.correctAttempts += 1;
+      this.activeRound.questionsCorrect += 1;
     } else {
       this.activeRound.incorrectAttempts += 1;
       this.activeRound.isCorrect = false;
     }
 
-    if (responseTime) {
+    if (typeof responseTime === 'number' && responseTime > 0) {
       this.activeRound.responseTimesMs.push(responseTime);
+      this.activeRound.responseTimesSec.push(Math.round((responseTime / 1000) * 10) / 10);
     }
 
-    // Update internal cognitive profile
+    // Update internal domain breakdown
     this.cognitiveProfile.updateDomain(domain, isCorrect);
     this.activeRound.domainScores[domain] = isCorrect;
 
@@ -128,29 +167,89 @@ export class PerformanceTracker {
 
     const roundEnd = new Date().toISOString();
     const roundStart = this.activeRound.startedAt;
-    const completionTimeSec = Math.max(
-      1,
-      Math.round((new Date(roundEnd).getTime() - new Date(roundStart).getTime()) / 1000)
-    );
+    const durationMs = Math.max(0, new Date(roundEnd).getTime() - new Date(roundStart).getTime());
+    const durationSec = Math.max(1, Math.round(durationMs / 1000));
 
-    const attempts = Math.max(1, this.activeRound.attempts);
-    const accuracy = Math.round((this.activeRound.correctAttempts / attempts) * 100) / 100;
+    // Handle zero-answer round: do NOT manufacture fake attempts or accuracy
+    if (this.activeRound.attempts === 0) {
+      const incompleteRound = {
+        ...this.activeRound,
+        completedAt: roundEnd,
+        durationSec,
+        activeDurationSec: durationSec,
+        status: 'incomplete',
+        accuracy: null,
+        averageResponseTimeSec: null,
+        responseTimeMs: null,
+        score: 0,
+        performanceScore: null,
+        eligibleForCVI: false,
+        dataQuality: 'zero_attempts_incomplete',
+      };
+
+      this.roundHistory.push(incompleteRound);
+      this.activeRound = null;
+      this.interactionStartTimestamp = null;
+
+      try {
+        await this.storage.saveRoundResult({
+          session: {
+            id: incompleteRound.sessionId || `session_${Date.now()}`,
+            playerId: this.playerId,
+            gameId: this.gameId,
+          },
+          roundData: incompleteRound,
+          profile: this.profile,
+        });
+      } catch (err) {
+        console.error('[PerformanceTracker] Failed to save incomplete round:', err);
+      }
+
+      return {
+        round: incompleteRound,
+        decision: {
+          status: 'insufficient_data',
+          decision: 'maintain',
+          nextDifficulty: incompleteRound.difficulty,
+          rollingScore: null,
+        },
+        profile: this.profile,
+      };
+    }
+
+    // Valid completed round with real attempts
+    const attempts = this.activeRound.attempts;
+    const correctAttempts = this.activeRound.correctAttempts;
+    const accuracy = Math.round((correctAttempts / attempts) * 100) / 100;
+
     const validTimes = this.activeRound.responseTimesMs;
     const avgResponseTimeMs =
-      validTimes.length > 0 ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : 0;
+      validTimes.length > 0
+        ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length)
+        : null;
+    const averageResponseTimeSec =
+      avgResponseTimeMs !== null ? Math.round((avgResponseTimeMs / 1000) * 10) / 10 : null;
 
     // Response efficiency: normalized score where calm, steady recall gets full marks
-    const responseEfficiency = avgResponseTimeMs > 0 && avgResponseTimeMs < 12000 ? 1.0 : 0.8;
+    const responseEfficiency =
+      avgResponseTimeMs !== null && avgResponseTimeMs > 0 && avgResponseTimeMs < 12000
+        ? 1.0
+        : 0.8;
 
-    // Rolling consistency
-    const recentAccuracies = [...this.roundHistory.map((r) => r.accuracy), accuracy].slice(-10);
+    // Rolling consistency across prior valid completed rounds
+    const priorValidAccuracies = this.roundHistory
+      .filter((r) => r && typeof r.accuracy === 'number' && !r.isAbandoned)
+      .map((r) => r.accuracy);
+    const recentAccuracies = [...priorValidAccuracies, accuracy].slice(-10);
+
     const consistency =
       recentAccuracies.length > 1
         ? 1.0 -
           Math.min(
             1.0,
             Math.sqrt(
-              recentAccuracies.reduce((sum, a) => sum + Math.pow(a - accuracy, 2), 0) / recentAccuracies.length
+              recentAccuracies.reduce((sum, a) => sum + Math.pow(a - accuracy, 2), 0) /
+                recentAccuracies.length
             )
           )
         : 1.0;
@@ -166,16 +265,32 @@ export class PerformanceTracker {
     const completedRound = {
       ...this.activeRound,
       completedAt: roundEnd,
-      completionTimeSec,
+      durationSec,
+      activeDurationSec: durationSec,
+      completionTimeSec: durationSec,
+      status: 'completed',
+      attempts,
+      correctAttempts,
+      incorrectAttempts: this.activeRound.incorrectAttempts,
+      questionsTotal: attempts,
+      questionsCorrect: correctAttempts,
       accuracy,
       responseTimeMs: avgResponseTimeMs,
+      averageResponseTimeSec,
+      score: Math.round(performanceScore * 10),
       performanceScore,
+      isCorrect: this.activeRound.isCorrect,
+      isAbandoned: false,
+      eligibleForCVI: true,
+      dataQuality: 'verified_gameplay',
       cognitiveScores: this.cognitiveProfile.toJSON(),
     };
 
+    // Update profile tracking
+    this.cognitiveProfile.recordCompletedRound();
     this.roundHistory.push(completedRound);
 
-    // Evaluate difficulty adaptation
+    // Evaluate difficulty adaptation with verified rounds
     const difficultyDecision = this.difficultyEngine.evaluate({
       currentDifficulty: completedRound.difficulty,
       roundHistory: this.roundHistory,
@@ -191,8 +306,11 @@ export class PerformanceTracker {
     this.profile = {
       gameId: this.gameId,
       playerId: this.playerId,
-      currentDifficulty: difficultyDecision.nextDifficulty,
+      currentDifficulty: difficultyDecision.nextDifficulty || completedRound.difficulty,
       roundsPlayed: (this.profile?.roundsPlayed || 0) + 1,
+      totalRounds: this.cognitiveProfile.totalRounds,
+      totalAttempts: this.cognitiveProfile.totalAttempts,
+      totalCorrectAttempts: this.cognitiveProfile.totalCorrectAttempts,
       accuracy: this.cognitiveProfile.overallAccuracy,
       sequenceAccuracy: this.cognitiveProfile.sequenceRecallScore,
       spatialAccuracy: this.cognitiveProfile.spatialRecallScore,
@@ -202,20 +320,26 @@ export class PerformanceTracker {
       promotionCount,
       demotionCount,
       streak: newStreak,
+      sampleCount: this.cognitiveProfile.sampleCount,
+      hasEnoughData: this.cognitiveProfile.hasEnoughData,
       cognitiveScores: this.cognitiveProfile.toJSON(),
       updatedAt: new Date().toISOString(),
     };
 
-    // Save offline asynchronously without blocking
-    this.storage
-      .saveRoundResult({
-        session: { id: `session_${Date.now()}`, playerId: this.playerId, gameId: this.gameId },
+    // Await persistence operation safely
+    try {
+      await this.storage.saveRoundResult({
+        session: {
+          id: completedRound.sessionId || null,
+          playerId: this.playerId,
+          gameId: this.gameId,
+        },
         roundData: completedRound,
         profile: this.profile,
-      })
-      .catch((err) => {
-        console.warn('[PerformanceTracker] Offline storage error caught safely:', err);
       });
+    } catch (err) {
+      console.error('[PerformanceTracker] Failed to save completed round:', err);
+    }
 
     this.activeRound = null;
     this.interactionStartTimestamp = null;
@@ -232,9 +356,14 @@ export class PerformanceTracker {
     const abandoned = {
       ...this.activeRound,
       completedAt: new Date().toISOString(),
+      status: 'abandoned',
       isAbandoned: true,
-      accuracy: 0,
-      performanceScore: 0,
+      accuracy: null,
+      averageResponseTimeSec: null,
+      responseTimeMs: null,
+      performanceScore: null,
+      eligibleForCVI: false,
+      dataQuality: 'abandoned_session',
     };
     this.activeRound = null;
     this.interactionStartTimestamp = null;

@@ -21,6 +21,7 @@ import {
   recordPerformance,
 } from '../modules/database';
 import { supabase } from '../modules/supabaseClient';
+import { cognitiveAnalytics, defaultLocalStorage } from '../modules/performance';
 
 /* -------------------------------------------------------------
    Security, Sanitization & Dev Logging Helpers
@@ -428,6 +429,69 @@ export default function NortheastMemoryGame({
         setScenesCompleted((prev) => prev + 1);
         logDev('Round complete! Moving to round-complete state.');
         setGameState('round-complete');
+
+        const totalAttempts = questions.length;
+        const totalCorrect = roundScore + (isCorrect ? 1 : 0);
+        const actualDurationSec = sceneStartTime ? Math.max(1, Math.round((Date.now() - sceneStartTime) / 1000)) : 0;
+        const sessionId = `nem_sess_${activePatientId}_${Date.now()}`;
+        const roundAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null;
+        const isEligible = totalAttempts > 0 && activePatientId;
+
+        // 1. Save to centralized LocalPerformanceStorage
+        if (activePatientId) {
+          defaultLocalStorage
+            .saveRoundResult({
+              session: {
+                id: sessionId,
+                playerId: activePatientId,
+                gameId: 'northeast_memory',
+              },
+              roundData: {
+                gameId: 'northeast_memory',
+                playerId: activePatientId,
+                sessionId,
+                roundNumber: scenesCompleted + 1,
+                status: 'completed',
+                difficulty,
+                attempts: totalAttempts,
+                correctAttempts: totalCorrect,
+                accuracy: totalAttempts > 0 ? totalCorrect / totalAttempts : 0,
+                durationSec: actualDurationSec,
+                startedAt: new Date(sceneStartTime || Date.now()).toISOString(),
+                completedAt: new Date().toISOString(),
+                eligibleForCVI: isEligible,
+              },
+            })
+            .catch((err) => {
+              console.warn('[NortheastMemoryGame] LocalPerformanceStorage save notice:', err?.message);
+            });
+        }
+
+        // 2. Record in unified caregiver cognitive analytics service
+        try {
+          cognitiveAnalytics.recordGameSession({
+            gameId: 'northeast_memory',
+            gameName: 'North East Scenic Memory',
+            domain: 'episodic_recall',
+            difficulty: difficulty,
+            durationSec: actualDurationSec,
+            questionsTotal: totalAttempts,
+            questionsCorrect: totalCorrect,
+            accuracy: roundAccuracy,
+            responseTimeSec: typeof responseTimeSec === 'number' && responseTimeSec > 0 ? responseTimeSec : null,
+            score: totalCorrect * 10,
+            patientId: activePatientId,
+            metadata: {
+              sessionId,
+              roundNumber: scenesCompleted + 1,
+              eligibleForCVI: isEligible,
+            },
+          }).catch((err) => {
+            console.error('[NortheastMemoryGame] Error recording session:', err);
+          });
+        } catch (e) {
+          console.error('[NortheastMemoryGame] Exception recording session:', e);
+        }
       }
     }, 1500);
   };

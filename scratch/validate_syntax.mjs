@@ -34,8 +34,15 @@ const filesToValidate = [
   'src/games/suhTahLam/components/SequencePlayer.js',
   'src/games/suhTahLam/components/ChangeDetectionView.js',
   'src/games/suhTahLam/SuhTahLamGame.js',
+  'src/games/DhopkhelGame.js',
+  'src/games/MemoryStoriesGame.js',
+  'src/games/suhTahLam/storage/LocalPerformanceStorage.js',
+  'src/modules/performance/CognitiveVitalityIndex.js',
   'src/modules/performance/PerformanceTracker.js',
   'src/modules/performance/SupabasePerformanceService.js',
+  'src/modules/performance/CognitiveAnalyticsService.js',
+  'src/screens/CaregiverAnalyticsScreen.js',
+  'App.js',
 ];
 
 console.log('--- VALIDATING JAVASCRIPT & JSX SYNTAX ---');

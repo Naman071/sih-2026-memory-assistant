@@ -14,12 +14,20 @@ export class SessionManager {
     this.currentSession = null;
   }
 
+  createSessionId() {
+    const uuid =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    return `sess_${uuid}`;
+  }
+
   /**
    * Starts a new game session
    */
   startSession({ playerId = 'P001', gameType = 'dhop_khel', initialDifficulty = 'easy' } = {}) {
     const now = new Date().toISOString();
-    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const sessionId = this.createSessionId();
 
     this.currentSession = {
       id: sessionId,

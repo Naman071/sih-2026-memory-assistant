@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePatient } from '../context/PatientContext';
 import LanguageSelector from '../components/LanguageSelector';
 import {
   STORY_DATA,
@@ -19,6 +20,7 @@ import {
   LEVEL_METADATA,
   getQuestionsByDifficulty,
 } from '../modules/storyGameData';
+import { cognitiveAnalytics, defaultLocalStorage } from '../modules/performance';
 
 const SCREENS = {
   STORY: 'story',
@@ -30,6 +32,7 @@ const SCREENS = {
 export default function MemoryStoriesGame({ onExit }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
+  const { patientId: activePatientId } = usePatient();
 
   // Screen flow state
   const [screen, setScreen] = useState(SCREENS.STORY);
@@ -37,6 +40,8 @@ export default function MemoryStoriesGame({ onExit }) {
   // Difficulty & progress state
   const [currentTier, setCurrentTier] = useState('easy'); // 'easy' | 'medium' | 'hard'
   const [tierQuestionIndex, setTierQuestionIndex] = useState(0); // index inside current tier
+  const tierStartTimeRef = useRef(Date.now());
+  const sessionIdRef = useRef(`stories_sess_${Date.now()}`);
   const [unlockedTiers, setUnlockedTiers] = useState({
     easy: true,
     medium: false,
@@ -114,6 +119,69 @@ export default function MemoryStoriesGame({ onExit }) {
       setTierQuestionIndex(nextIdx);
     } else {
       // Completed all questions in current tier!
+      const totalAttempts = currentTierQuestions.length;
+      const totalCorrect = answeredQuestionIds.size;
+      const actualDurationSec = Math.max(1, Math.round((Date.now() - tierStartTimeRef.current) / 1000));
+      const playerId = activePatientId || 'guest_player';
+      const sessionId = sessionIdRef.current;
+      const isEligible = totalAttempts > 0 && Boolean(activePatientId);
+
+      // 1. Save to centralized LocalPerformanceStorage
+      if (activePatientId) {
+        defaultLocalStorage
+          .saveRoundResult({
+            session: {
+              id: sessionId,
+              playerId,
+              gameId: 'memory_stories',
+            },
+            roundData: {
+              gameId: 'memory_stories',
+              playerId,
+              sessionId,
+              roundNumber: 1,
+              status: 'completed',
+              difficulty: currentTier,
+              attempts: totalAttempts,
+              correctAttempts: totalCorrect,
+              accuracy: totalAttempts > 0 ? totalCorrect / totalAttempts : 0,
+              durationSec: actualDurationSec,
+              startedAt: new Date(tierStartTimeRef.current).toISOString(),
+              completedAt: new Date().toISOString(),
+              eligibleForCVI: isEligible,
+            },
+          })
+          .catch((err) => {
+            console.warn('[MemoryStoriesGame] LocalPerformanceStorage save notice:', err?.message);
+          });
+      }
+
+      // 2. Record in unified caregiver cognitive analytics service
+      try {
+        cognitiveAnalytics.recordGameSession({
+          gameId: 'memory_stories',
+          gameName: 'Xuworoni Kotha',
+          domain: 'episodic_recall',
+          difficulty: currentTier,
+          durationSec: actualDurationSec,
+          questionsTotal: totalAttempts,
+          questionsCorrect: totalCorrect,
+          accuracy: totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null,
+          responseTimeSec: null,
+          score: totalCorrect * 10,
+          patientId: playerId,
+          metadata: {
+            sessionId,
+            roundNumber: 1,
+            eligibleForCVI: isEligible,
+          },
+        }).catch((err) => {
+          console.error('[MemoryStoriesGame] Error recording session:', err);
+        });
+      } catch (e) {
+        console.error('[MemoryStoriesGame] Exception recording session:', e);
+      }
+
       if (currentTier === 'easy') {
         setUnlockedTiers((prev) => ({ ...prev, medium: true }));
         setScreen(SCREENS.LEVEL_UNLOCKED);
@@ -124,10 +192,11 @@ export default function MemoryStoriesGame({ onExit }) {
         setScreen(SCREENS.COMPLETE);
       }
     }
-  }, [tierQuestionIndex, currentTierQuestions.length, currentTier]);
+  }, [tierQuestionIndex, currentTierQuestions.length, currentTier, answeredQuestionIds, activePatientId]);
 
   // Handle continuing to the next tier from the level unlock milestone screen
   const handleContinueNextTier = useCallback(() => {
+    tierStartTimeRef.current = Date.now();
     if (currentTier === 'easy') {
       setCurrentTier('medium');
       setTierQuestionIndex(0);

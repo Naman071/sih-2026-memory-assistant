@@ -32,6 +32,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePatient } from '../../context/PatientContext';
 import LanguageSelector from '../../components/LanguageSelector';
 
 import { PerformanceTracker } from './engine/PerformanceTracker';
@@ -39,6 +40,7 @@ import { SessionManager } from './engine/SessionManager';
 import { defaultSequenceManager } from './engine/SequenceManager';
 import { defaultDifficultyEngine } from './engine/DifficultyEngine';
 import { defaultLocalStorage } from './storage/LocalPerformanceStorage';
+import { cognitiveAnalytics } from '../../modules/performance';
 
 import SequencePlayer from './components/SequencePlayer';
 import QuestionView from './components/QuestionView';
@@ -60,6 +62,9 @@ export const GAME_STEPS = {
 export default function SuhTahLamGame({ onExit }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
+  const { currentPatientId, patientId } = usePatient?.() || {};
+  // Safe fallback to P001 only if context is unconfigured
+  const effectivePlayerId = patientId || currentPatientId || 'P001';
 
   const [currentStep, setCurrentStep] = useState(GAME_STEPS.START);
   const [currentDifficulty, setCurrentDifficulty] = useState('easy');
@@ -85,15 +90,15 @@ export default function SuhTahLamGame({ onExit }) {
     const init = async () => {
       const tracker = new PerformanceTracker({
         gameId: 'suh_tah_lam',
-        playerId: 'P001',
+        playerId: effectivePlayerId,
         difficultyEngine: defaultDifficultyEngine,
         storage: defaultLocalStorage,
       });
 
-      const { currentDifficulty: diff } = await tracker.initialize();
+      const { currentDifficulty: diff } = await tracker.initialize({ playerId: effectivePlayerId });
       trackerRef.current = tracker;
       setCurrentDifficulty(diff || 'easy');
-      sessionManagerRef.current.startSession({ initialDifficulty: diff });
+      sessionManagerRef.current.startSession({ playerId: effectivePlayerId, initialDifficulty: diff });
       setIsInitializing(false);
     };
 
@@ -106,7 +111,7 @@ export default function SuhTahLamGame({ onExit }) {
       }
       sessionManagerRef.current.endSession();
     };
-  }, []);
+  }, [effectivePlayerId]);
 
   const startNewRound = () => {
     const sequence = defaultSequenceManager.getNextSequence(currentDifficulty);
@@ -121,9 +126,11 @@ export default function SuhTahLamGame({ onExit }) {
     }
 
     if (trackerRef.current) {
+      const currentSession = sessionManagerRef.current.getSession();
       trackerRef.current.startRound({
         difficulty: currentDifficulty,
         sequenceId: sequence.id,
+        sessionId: currentSession?.id || null,
       });
     }
 
@@ -145,9 +152,9 @@ export default function SuhTahLamGame({ onExit }) {
   const handleQuestionAnswered = (chosenOption, isCorrect) => {
     if (soundEnabled) {
       if (isCorrect) {
-        audioEngineRef.current?.playCelebration();
+        audioEngineRef.current?.playCelebrationChime?.();
       } else {
-        audioEngineRef.current?.playEncouragement();
+        audioEngineRef.current?.playGentleEncouragement?.();
       }
     }
 
@@ -170,9 +177,9 @@ export default function SuhTahLamGame({ onExit }) {
   const handleGridCompleted = ({ chosenPath, correctPath, isCorrect }) => {
     if (soundEnabled) {
       if (isCorrect) {
-        audioEngineRef.current?.playCelebration();
+        audioEngineRef.current?.playCelebrationChime?.();
       } else {
-        audioEngineRef.current?.playEncouragement();
+        audioEngineRef.current?.playGentleEncouragement?.();
       }
     }
 
@@ -194,9 +201,9 @@ export default function SuhTahLamGame({ onExit }) {
   const handleChangeDetected = ({ chosenOption, correctOption, isCorrect }) => {
     if (soundEnabled) {
       if (isCorrect) {
-        audioEngineRef.current?.playCelebration();
+        audioEngineRef.current?.playCelebrationChime?.();
       } else {
-        audioEngineRef.current?.playEncouragement();
+        audioEngineRef.current?.playGentleEncouragement?.();
       }
     }
 
@@ -223,9 +230,9 @@ export default function SuhTahLamGame({ onExit }) {
   const handleReconstructCompleted = ({ chosenSequence, correctSequence, isCorrect }) => {
     if (soundEnabled) {
       if (isCorrect) {
-        audioEngineRef.current?.playCelebration();
+        audioEngineRef.current?.playCelebrationChime?.();
       } else {
-        audioEngineRef.current?.playEncouragement();
+        audioEngineRef.current?.playGentleEncouragement?.();
       }
     }
 
@@ -248,13 +255,46 @@ export default function SuhTahLamGame({ onExit }) {
     audioEngineRef.current?.stopAmbientDrone();
     audioEngineRef.current?.stopFluteMelody();
     if (soundEnabled) {
-      audioEngineRef.current?.playCelebration();
+      audioEngineRef.current?.playCelebrationChime?.();
     }
 
     if (trackerRef.current) {
       const result = await trackerRef.current.completeRound();
       if (result?.decision?.nextDifficulty) {
         setCurrentDifficulty(result.decision.nextDifficulty);
+      }
+      try {
+        const roundData = result?.round;
+        // Only record valid gameplay sessions that have completed real attempts
+        if (roundData && roundData.status === 'completed' && roundData.attempts > 0) {
+          const currentSession = sessionManagerRef.current.getSession();
+          await cognitiveAnalytics.recordGameSession({
+            gameId: 'suh_tah_lam',
+            gameName: 'Suh Tah Lam',
+            domain: 'visual_memory',
+            difficulty: currentDifficulty,
+            durationSec: roundData.completionTimeSec || roundData.durationSec || 0,
+            questionsTotal: roundData.attempts,
+            questionsCorrect: roundData.correctAttempts,
+            accuracy: Math.round(roundData.accuracy * 100),
+            responseTimeSec:
+              typeof roundData.responseTimeMs === 'number' && roundData.responseTimeMs > 0
+                ? Math.round((roundData.responseTimeMs / 1000) * 10) / 10
+                : null,
+            score:
+              typeof roundData.score === 'number'
+                ? roundData.score
+                : Math.round((roundData.performanceScore || 0) * 10),
+            patientId: effectivePlayerId,
+            metadata: {
+              sessionId: roundData.sessionId || currentSession?.id || null,
+              eligibleForCVI: true,
+              dataQuality: 'verified_gameplay',
+            },
+          });
+        }
+      } catch (e) {
+        console.error('[SuhTahLamGame] Failed to record completed round into cognitiveAnalytics:', e);
       }
     }
     sessionManagerRef.current.recordRoundCompleted();

@@ -3,9 +3,10 @@
  *
  * Implements smooth difficulty adaptation with hysteresis:
  * - 3 levels: 'easy', 'medium', 'hard'
- * - Requires minimum 3 completed rounds at current level before promoting
+ * - Requires minimum 3 completed valid rounds at current level before promoting
  * - Never oscillates rapidly (gradual step-by-step promotion/demotion)
  * - Prioritizes cognitive accuracy over speed
+ * - Uses strictly verified, numeric gameplay metrics without fake fallbacks
  */
 
 export const DIFFICULTY_CONFIG = {
@@ -57,46 +58,91 @@ export class DifficultyEngine {
    * Accuracy: 45%
    * Task Success: 20%
    * Consistency: 15%
-   * Sequence / Spatial Accuracy: 10%
+   * Sequence / Spatial Domain Accuracy: 10%
    * Response Efficiency: 10%
    */
   calculateWeightedScore({
-    accuracy = 1.0,
-    taskSuccess = 1.0,
-    consistency = 1.0,
-    domainAccuracy = 1.0,
-    responseEfficiency = 0.8,
-  }) {
+    accuracy = null,
+    taskSuccess = null,
+    consistency = null,
+    domainAccuracy = null,
+    responseEfficiency = null,
+  } = {}) {
+    const acc = Number.isFinite(accuracy) ? Math.max(0, Math.min(1, accuracy)) : 0;
+    const task = Number.isFinite(taskSuccess) ? Math.max(0, Math.min(1, taskSuccess)) : 0;
+    const cons = Number.isFinite(consistency) ? Math.max(0, Math.min(1, consistency)) : 0.7;
+    const dom = Number.isFinite(domainAccuracy) ? Math.max(0, Math.min(1, domainAccuracy)) : acc;
+    const resp = Number.isFinite(responseEfficiency) ? Math.max(0, Math.min(1, responseEfficiency)) : 0.8;
+
     const score =
-      0.45 * Math.max(0, Math.min(1, accuracy)) +
-      0.20 * Math.max(0, Math.min(1, taskSuccess)) +
-      0.15 * Math.max(0, Math.min(1, consistency)) +
-      0.10 * Math.max(0, Math.min(1, domainAccuracy)) +
-      0.10 * Math.max(0, Math.min(1, responseEfficiency));
+      0.45 * acc +
+      0.20 * task +
+      0.15 * cons +
+      0.10 * dom +
+      0.10 * resp;
 
     return Math.round(score * 1000) / 1000;
   }
 
   /**
-   * Evaluates historical performance and returns next difficulty with hysteresis
+   * Evaluates historical performance and returns next difficulty with hysteresis.
+   * Filters out abandoned and zero-attempt invalid rounds.
    */
   evaluate({ currentDifficulty = 'easy', roundHistory = [] }) {
+    if (!Array.isArray(roundHistory)) {
+      return {
+        status: 'insufficient_data',
+        decision: 'maintain',
+        currentDifficulty,
+        nextDifficulty: currentDifficulty,
+        reason: 'No round history available',
+        rollingScore: null,
+        score: null,
+      };
+    }
+
+    // Filter valid completed rounds with numeric scores
+    const validRounds = roundHistory.filter((r) => {
+      if (!r || typeof r !== 'object') return false;
+      if (r.isAbandoned === true || r.status === 'abandoned' || r.status === 'incomplete') return false;
+      if (typeof r.attempts === 'number' && r.attempts <= 0) return false;
+      return Number.isFinite(r.performanceScore);
+    });
+
     // Filter rounds played at current difficulty
-    const currentDiffRounds = roundHistory.filter((r) => r.difficulty === currentDifficulty);
+    const currentDiffRounds = validRounds.filter((r) => r.difficulty === currentDifficulty);
 
     if (currentDiffRounds.length < this.minRoundsBeforeChange) {
       return {
+        status: 'insufficient_data',
         decision: 'maintain',
+        currentDifficulty,
         nextDifficulty: currentDifficulty,
         reason: `Gathering baseline data (${currentDiffRounds.length}/${this.minRoundsBeforeChange} rounds)`,
-        rollingScore: 0.8,
+        rollingScore: null,
+        score: null,
       };
     }
 
     // Look at last 3 to 5 rounds at current difficulty
     const recent = currentDiffRounds.slice(-5);
-    const rollingScore =
-      recent.reduce((sum, r) => sum + (r.performanceScore || 0.8), 0) / recent.length;
+    const validScores = recent
+      .map((r) => r.performanceScore)
+      .filter((s) => Number.isFinite(s));
+
+    if (validScores.length === 0) {
+      return {
+        status: 'insufficient_data',
+        decision: 'maintain',
+        currentDifficulty,
+        nextDifficulty: currentDifficulty,
+        reason: 'No valid numeric performance scores available',
+        rollingScore: null,
+        score: null,
+      };
+    }
+
+    const rollingScore = validScores.reduce((sum, s) => sum + s, 0) / validScores.length;
 
     let nextDifficulty = currentDifficulty;
     let decision = 'maintain';
@@ -124,11 +170,15 @@ export class DifficultyEngine {
       }
     }
 
+    const roundedRollingScore = Math.round(rollingScore * 100) / 100;
+
     return {
+      status: 'ready',
       decision,
       currentDifficulty,
       nextDifficulty,
-      rollingScore: Math.round(rollingScore * 100) / 100,
+      rollingScore: roundedRollingScore,
+      score: roundedRollingScore,
       reason,
     };
   }
@@ -139,4 +189,3 @@ export class DifficultyEngine {
 }
 
 export const defaultDifficultyEngine = new DifficultyEngine();
-

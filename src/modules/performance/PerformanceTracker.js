@@ -20,11 +20,13 @@ import {
   calculatePerformanceScore,
 } from './MetricsCalculator.js';
 import { SupabasePerformanceService, defaultPerformanceService } from './SupabasePerformanceService.js';
+import { cognitiveAnalytics } from './CognitiveAnalyticsService.js';
+import { defaultLocalStorage } from '../../games/suhTahLam/storage/LocalPerformanceStorage.js';
 
 export class PerformanceTracker {
   constructor({
     gameType = 'dhop_khel',
-    playerId = 'P001',
+    playerId = null,
     difficultyEngine = defaultDifficultyEngine,
     performanceService = defaultPerformanceService,
   } = {}) {
@@ -188,14 +190,15 @@ export class PerformanceTracker {
       Math.round((new Date(roundEnd).getTime() - new Date(roundStart).getTime()) / 1000)
     );
 
-    const accuracy = calculateAccuracy(
-      this.activeRound.correctAttempts,
-      this.activeRound.attempts || 1
-    );
-    const errorRate = calculateErrorRate(
-      this.activeRound.incorrectAttempts,
-      this.activeRound.attempts || 1
-    );
+    const hasAttempts = Number.isFinite(this.activeRound.attempts) && this.activeRound.attempts > 0;
+    const accuracy = hasAttempts
+      ? calculateAccuracy(this.activeRound.correctAttempts, this.activeRound.attempts)
+      : null;
+    const errorRate = hasAttempts
+      ? calculateErrorRate(this.activeRound.incorrectAttempts, this.activeRound.attempts)
+      : null;
+    const isEligibleForCVI = hasAttempts && !this.activeRound.isAbandoned;
+
     const responseStats = calculateResponseTimeStats(this.activeRound.responseTimesMs);
     const responseEfficiency = calculateResponseEfficiency(
       responseStats.average,
@@ -210,15 +213,22 @@ export class PerformanceTracker {
     const consistencyScore = calculateConsistencyScore(recentAccuracies);
 
     const performanceScore = calculatePerformanceScore({
-      accuracy,
+      accuracy: accuracy !== null ? accuracy : 0,
       taskSuccess: this.activeRound.isCorrect ? 1.0 : 0.0,
       consistency: consistencyScore,
       responseEfficiency,
       completedNormally: true,
     });
 
+    const currentSession = this.sessionManager.getSession();
+    const sessionId = currentSession?.id || `sess_${Date.now()}`;
+
     const completedRound = {
       ...this.activeRound,
+      gameId: this.gameType,
+      playerId: this.playerId,
+      sessionId,
+      status: 'completed',
       completedAt: roundEnd,
       completionTimeSec,
       accuracy,
@@ -228,6 +238,7 @@ export class PerformanceTracker {
       responseEfficiency,
       consistencyScore,
       performanceScore,
+      eligibleForCVI: isEligibleForCVI,
     };
 
     // Update history
@@ -251,6 +262,7 @@ export class PerformanceTracker {
     this.profile = {
       playerId: this.playerId,
       gameType: this.gameType,
+      gameId: this.gameType,
       currentDifficulty: difficultyDecision.nextDifficulty,
       recentScore: difficultyDecision.rollingScore,
       promotionCount,
@@ -259,16 +271,64 @@ export class PerformanceTracker {
       updatedAt: new Date().toISOString(),
     };
 
-    // Background Async Persistence (local and Supabase)
+    // Background Async Persistence (Supabase)
     this.performanceService
       .saveRoundResult({
-        session: session || { id: 'temp', playerId: this.playerId, gameType: this.gameType },
+        session: session || { id: sessionId, playerId: this.playerId, gameType: this.gameType },
         roundData: completedRound,
         profile: this.profile,
       })
       .catch((err) => {
         console.warn('Background saveRoundResult error handled safely:', err);
       });
+
+    // Offline Local Performance Storage Persistence
+    if (this.playerId) {
+      defaultLocalStorage
+        .saveRoundResult({
+          session: { id: sessionId, playerId: this.playerId, gameId: this.gameType },
+          roundData: completedRound,
+          profile: this.profile,
+        })
+        .catch((localErr) => {
+          console.warn('[PerformanceTracker] LocalPerformanceStorage save notice:', localErr?.message);
+        });
+    }
+
+    // Record in unified caregiver cognitive analytics service
+    try {
+      cognitiveAnalytics.recordGameSession({
+        gameId: this.gameType,
+        domain:
+          this.gameType === 'ubilakapki'
+            ? 'spatial_coordination'
+            : this.gameType === 'dhop_khel'
+            ? 'attention_focus'
+            : this.gameType === 'suh_tah_lam'
+            ? 'visual_memory'
+            : 'visual_memory',
+        difficulty: completedRound.difficulty,
+        durationSec: completedRound.completionTimeSec || 0,
+        questionsTotal: completedRound.attempts,
+        questionsCorrect: completedRound.correctAttempts,
+        accuracy: typeof completedRound.accuracy === 'number' ? Math.round(completedRound.accuracy * 100) : null,
+        responseTimeSec:
+          typeof completedRound.responseTimeMs === 'number' && completedRound.responseTimeMs > 0
+            ? Math.round((completedRound.responseTimeMs / 1000) * 10) / 10
+            : null,
+        score: typeof completedRound.score === 'number' ? completedRound.score : Math.round((completedRound.performanceScore || 0) * 10),
+        patientId: this.playerId,
+        metadata: {
+          sessionId,
+          roundNumber: completedRound.roundNumber,
+          eligibleForCVI: isEligibleForCVI,
+        },
+      }).catch((err) => {
+        console.error('[PerformanceTracker] Failed to record game session in cognitiveAnalytics:', err);
+      });
+    } catch (e) {
+      console.error('[PerformanceTracker] Exception recording session:', e);
+    }
 
     this.activeRound = null;
     this.interactionStartTimestamp = null;

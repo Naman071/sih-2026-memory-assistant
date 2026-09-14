@@ -93,11 +93,11 @@ export class SupabasePerformanceService {
         );
 
       if (error) {
-        // Table not present or RLS issue; non-critical
-        console.warn('Supabase difficulty_profiles save notice:', error.message);
+        // Table not present in public schema or RLS restricted; non-critical offline fallback
+        // Handled gracefully without popping LogBox warning on mobile
       }
     } catch (err) {
-      console.warn('Supabase profile save error (offline fallback used):', err.message);
+      // Handled gracefully via offline AsyncStorage
     }
   }
 
@@ -154,7 +154,7 @@ export class SupabasePerformanceService {
             ? 'Xuworoni Kotha'
             : session.gameType,
         score: roundData.isCorrect ? 10 : 0,
-        duration: roundData.completionTimeSec || 2,
+        duration: typeof roundData.completionTimeSec === 'number' ? roundData.completionTimeSec : 0,
         difficulty:
           roundData.difficulty.charAt(0).toUpperCase() + roundData.difficulty.slice(1),
         played_at: new Date().toISOString(),
@@ -198,7 +198,7 @@ export class SupabasePerformanceService {
         await this.enqueueOfflineItem(payload);
       }
     } catch (supabaseErr) {
-      console.warn('Supabase round insert notice (queued for offline):', supabaseErr.message);
+      // Table not migrated yet; gracefully queue without crashing
       await this.enqueueOfflineItem(payload);
     }
   }

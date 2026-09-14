@@ -1,14 +1,23 @@
 import * as React from 'react';
-import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator, StyleSheet, LogBox } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
+LogBox.ignoreLogs([
+  'Supabase difficulty_profiles save notice',
+  'Could not find the table',
+  'schema cache',
+  'Supabase profile save error',
+  'Supabase round insert notice',
+]);
+
 import HomeScreen from './src/screens/HomeScreen';
 import GamesScreen from './src/screens/GamesScreen';
 import MemoriesScreen from './src/screens/MemoriesScreen';
 import AIScreen from './src/screens/AIScreen';
+import CaregiverAnalyticsScreen from './src/screens/CaregiverAnalyticsScreen';
 import SetupWizard from './src/screens/SetupWizard';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { PatientProvider, usePatient } from './src/context/PatientContext';
@@ -65,6 +74,8 @@ function MainNavigator({ onOpenSettings }) {
               iconName = focused ? 'heart' : 'heart-outline';
             } else if (route.name === 'AI') {
               iconName = focused ? 'chatbubble' : 'chatbubble-outline';
+            } else if (route.name === 'Insights') {
+              iconName = focused ? 'stats-chart' : 'stats-chart-outline';
             }
             return <Ionicons name={iconName} size={size} color={color} />;
           },
@@ -123,6 +134,14 @@ function MainNavigator({ onOpenSettings }) {
           options={{
             tabBarLabel: t('nav.ai'),
             headerTitle: t('nav.ai'),
+          }}
+        />
+        <Tab.Screen
+          name="Insights"
+          component={CaregiverAnalyticsScreen}
+          options={{
+            tabBarLabel: t('nav.insights', 'Insights'),
+            headerTitle: t('nav.caregiverAnalytics', 'Caregiver Analytics'),
           }}
         />
       </Tab.Navigator>

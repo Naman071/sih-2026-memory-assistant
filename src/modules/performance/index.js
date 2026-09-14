@@ -8,4 +8,6 @@ export * from './DifficultyEngine.js';
 export * from './SessionManager.js';
 export * from './SupabasePerformanceService.js';
 export * from './PerformanceTracker.js';
-
+export * from './CognitiveAnalyticsService.js';
+export * from './CognitiveVitalityIndex.js';
+export * from '../../games/suhTahLam/storage/LocalPerformanceStorage.js';

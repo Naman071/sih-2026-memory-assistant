@@ -402,11 +402,19 @@ export class SuhTahLamAudioEngine {
           try {
             osc.stop();
             osc.disconnect();
-          } catch (e) {}
+          } catch (stopErr) {
+            // Audio node may already be stopped or disconnected
+            if (typeof __DEV__ !== 'undefined' && __DEV__) {
+              console.debug?.('Audio node cleanup notice:', stopErr?.message);
+            }
+          }
         }, 850);
       });
       this.ambientOscillators = [];
-    } catch (e) {
+    } catch (cleanupErr) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.debug?.('Ambient stop error:', cleanupErr?.message);
+      }
       this.ambientOscillators = [];
     }
   }
@@ -441,7 +449,11 @@ export class SuhTahLamAudioEngine {
 
         osc.start(start);
         osc.stop(start + 0.75);
-      } catch (e) {}
+      } catch (playErr) {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.debug?.('Celebration chime note error:', playErr?.message);
+        }
+      }
     });
   }
 
@@ -477,8 +489,26 @@ export class SuhTahLamAudioEngine {
 
         osc.start(start);
         osc.stop(start + duration + 0.05);
-      } catch (e) {}
+      } catch (encouragementErr) {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.debug?.('Encouragement note error:', encouragementErr?.message);
+        }
+      }
     });
+  }
+
+  /**
+   * Celebration alias
+   */
+  playCelebration() {
+    this.playCelebrationChime();
+  }
+
+  /**
+   * Encouragement alias
+   */
+  playEncouragement() {
+    this.playGentleEncouragement();
   }
 
   /**
@@ -488,7 +518,9 @@ export class SuhTahLamAudioEngine {
     this.stopFluteMelody();
     this.stopAmbientDrone();
     if (this.audioCtx && this.audioCtx.state === 'running') {
-      this.audioCtx.suspend().catch(() => {});
+      this.audioCtx.suspend().catch((err) => {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.debug?.('Audio suspend:', err?.message);
+      });
     }
   }
 
@@ -497,7 +529,9 @@ export class SuhTahLamAudioEngine {
    */
   resume() {
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
+      this.audioCtx.resume().catch((err) => {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.debug?.('Audio resume:', err?.message);
+      });
     }
   }
 
@@ -509,8 +543,12 @@ export class SuhTahLamAudioEngine {
     this.stopAmbientDrone();
     if (this.audioCtx) {
       try {
-        this.audioCtx.close().catch(() => {});
-      } catch (e) {}
+        this.audioCtx.close().catch((err) => {
+          if (typeof __DEV__ !== 'undefined' && __DEV__) console.debug?.('Audio close:', err?.message);
+        });
+      } catch (closeErr) {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.debug?.('Audio context dispose error:', closeErr?.message);
+      }
       this.audioCtx = null;
       this.masterGain = null;
       this.ambientGain = null;
