@@ -1,5 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  Dimensions,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../theme/noklaiTheme';
 import { useTheme } from '../../context/ThemeContext';
@@ -23,9 +32,47 @@ export default function AppLaunchScreen() {
         },
       ]}
     >
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Brand Header */}
-        <View style={styles.brandHeader}>
+      {/* Background Cultural Hero Image with Low Transparency */}
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        <Image
+          source={require('../../../assets/launch_hero.jpg')}
+          style={[
+            styles.backgroundImage,
+            {
+              // Low transparency (high opacity ~0.85) so the scenic mountains and elders are rich & vibrant
+              opacity: isDarkMode ? 0.82 : 0.85,
+            },
+          ]}
+          resizeMode="cover"
+        />
+        {/* Soft Vignette Overlay to maintain contrast for top brand and bottom action cards */}
+        <View
+          style={[
+            styles.vignetteOverlay,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(15, 23, 42, 0.40)'
+                : 'rgba(255, 255, 255, 0.20)',
+            },
+          ]}
+        />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Top Brand Header Pill */}
+        <View
+          style={[
+            styles.brandCard,
+            {
+              backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)',
+              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.8)',
+            },
+          ]}
+        >
           <View style={styles.logoRow}>
             <View style={styles.logoBadge}>
               <Ionicons name="leaf" size={24} color="#16A34A" />
@@ -33,7 +80,7 @@ export default function AppLaunchScreen() {
             <Text
               style={[
                 styles.logoTitle,
-                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                { color: isDarkMode ? '#4ADE80' : '#15803D' },
               ]}
             >
               Noklai
@@ -42,117 +89,91 @@ export default function AppLaunchScreen() {
           <Text
             style={[
               styles.logoTagline,
-              { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+              { color: isDarkMode ? '#CBD5E1' : '#374151' },
             ]}
           >
             Our Culture. Their Memories. Always With Them.
           </Text>
         </View>
 
-        {/* Scenic Cultural Art Card */}
+        {/* Scenic Center Space - Unobstructed view of the grandparents and Himalayan mountains */}
+        <View style={styles.heroSpace} />
+
+        {/* Bottom Card with Cultural Motto & Get Started Button */}
         <View
           style={[
-            styles.scenicCard,
+            styles.bottomCard,
             {
-              backgroundColor: isDarkMode ? '#1E2430' : '#EAF2EB',
-              borderColor: isDarkMode ? '#2B3545' : '#D0E3D3',
+              backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.94)',
+              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.8)',
             },
           ]}
         >
-          {/* Mountain / Hills Visual Illustration with Native Icons */}
-          <View style={styles.sceneryContainer}>
-            <View style={styles.hillSun} />
-            <View style={styles.mountainsRow}>
-              <Ionicons name="triangle" size={110} color={isDarkMode ? '#243427' : '#C7DFC9'} style={styles.mountainLeft} />
-              <Ionicons name="triangle" size={140} color={isDarkMode ? '#1B2C1F' : '#A9CFA9'} style={styles.mountainCenter} />
-              <Ionicons name="triangle" size={110} color={isDarkMode ? '#243427' : '#B8D7B8'} style={styles.mountainRight} />
-            </View>
-            {/* Cultural traditional huts / village */}
-            <View style={styles.villageRow}>
-              <View style={styles.hutBadge}>
-                <Ionicons name="home" size={24} color="#92400E" />
-              </View>
-              <View style={styles.hutBadge}>
-                <Ionicons name="leaf" size={20} color="#15803D" />
-              </View>
-              <View style={styles.hutBadge}>
-                <Ionicons name="home" size={22} color="#B45309" />
-              </View>
-            </View>
-          </View>
-
-          {/* Elders Portrait Card */}
+          {/* Motto Badge */}
           <View
             style={[
-              styles.eldersCard,
+              styles.mottoBadge,
               {
-                backgroundColor: isDarkMode ? '#242C3B' : '#FFFFFF',
-                borderColor: isDarkMode ? '#323E54' : '#E5E7EB',
+                backgroundColor: isDarkMode ? 'rgba(74, 222, 128, 0.15)' : 'rgba(22, 163, 74, 0.12)',
               },
             ]}
           >
-            <View style={styles.avatarPairRow}>
-              <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={styles.avatarEmoji}>👴</Text>
-              </View>
-              <View style={[styles.avatarCircle, { backgroundColor: '#DCFCE7', marginLeft: -16 }]}>
-                <Text style={styles.avatarEmoji}>👵</Text>
-              </View>
-            </View>
+            <Ionicons name="heart" size={14} color={isDarkMode ? '#4ADE80' : '#16A34A'} />
             <Text
               style={[
-                styles.caringHeadline,
-                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                styles.mottoText,
+                { color: isDarkMode ? '#4ADE80' : '#15803D' },
               ]}
             >
-              Caring
-            </Text>
-            <Text
-              style={[
-                styles.caringSubline,
-                { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
-              ]}
-            >
-              for brighter tomorrows
+              Culture Connects. Care Continues.
             </Text>
           </View>
-        </View>
 
-        {/* Cultural Motto Banner */}
-        <View style={styles.mottoRow}>
-          <Ionicons name="heart" size={16} color="#EC4899" style={{ marginRight: 6 }} />
-          <Text style={[styles.mottoText, { color: isDarkMode ? '#CBD5E1' : '#475569' }]}>
-            Culture Connects. Care Continues.
+          <Text
+            style={[
+              styles.caringHeadline,
+              { color: isDarkMode ? '#F8FAFC' : '#111827' },
+            ]}
+          >
+            Caring for Brighter Tomorrows
           </Text>
-        </View>
+          <Text
+            style={[
+              styles.caringSubline,
+              { color: isDarkMode ? '#94A3B8' : '#64748B' },
+            ]}
+          >
+            Empowering dementia care through native culture
+          </Text>
 
-        {/* Action Button */}
-        <View style={styles.actionContainer}>
-          <NoklaiButton
-            title="Get Started"
-            variant="primary"
-            size="lg"
-            iconRight="arrow-forward"
-            onPress={() => setCurrentStep(hasCompletedSetup ? 'role_select' : 'login')}
-          />
-          {hasCompletedSetup && (
-            <TouchableOpacity
-              onPress={() => setCurrentStep('login')}
-              style={{ marginTop: 14, alignItems: 'center', padding: 6 }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary,
-                  textDecorationLine: 'underline',
-                }}
+          {/* Action Button */}
+          <View style={styles.actionContainer}>
+            <NoklaiButton
+              title="Get Started"
+              variant="primary"
+              size="lg"
+              iconRight="arrow-forward"
+              onPress={() => setCurrentStep(hasCompletedSetup ? 'role_select' : 'login')}
+            />
+            {hasCompletedSetup && (
+              <TouchableOpacity
+                onPress={() => setCurrentStep('login')}
+                style={{ marginTop: 12, alignItems: 'center', padding: 6 }}
+                activeOpacity={0.7}
               >
-                Change Caregiver & Patient Details
-              </Text>
-            </TouchableOpacity>
-          )}
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: isDarkMode ? '#94A3B8' : '#64748B',
+                    textDecorationLine: 'underline',
+                  }}
+                >
+                  Change Caregiver & Patient Details
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -163,148 +184,108 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  vignetteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
   container: {
-    paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 30,
-    alignItems: 'center',
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 28,
     justifyContent: 'space-between',
+    alignItems: 'center',
     minHeight: '100%',
   },
-  brandHeader: {
+  brandCard: {
+    width: width - 40,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
   },
   logoTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   logoTagline: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  scenicCard: {
-    width: width - 44,
-    borderRadius: noklaiTheme.radii.xxl,
+  heroSpace: {
+    flex: 1,
+    minHeight: 180,
+  },
+  bottomCard: {
+    width: width - 40,
+    borderRadius: 28,
     borderWidth: 1,
-    overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 24,
-    paddingHorizontal: 16,
-  },
-  sceneryContainer: {
-    width: '100%',
-    height: 180,
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  hillSun: {
-    position: 'absolute',
-    top: 10,
-    right: 30,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FDE68A',
-  },
-  mountainsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  mountainLeft: {
-    marginRight: -40,
-    transform: [{ rotate: '5deg' }],
-  },
-  mountainCenter: {
-    zIndex: 2,
-  },
-  mountainRight: {
-    marginLeft: -40,
-    transform: [{ rotate: '-5deg' }],
-  },
-  villageRow: {
-    position: 'absolute',
-    bottom: 6,
-    flexDirection: 'row',
-    gap: 16,
-    zIndex: 5,
-  },
-  hutBadge: {
-    padding: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-  },
-  eldersCard: {
-    width: '100%',
-    borderRadius: noklaiTheme.radii.xl,
-    borderWidth: 1,
-    paddingVertical: 18,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginTop: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  avatarPairRow: {
+  mottoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     marginBottom: 10,
   },
-  avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  avatarEmoji: {
-    fontSize: 34,
+  mottoText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   caringHeadline: {
     fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: -0.3,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   caringSubline: {
-    fontSize: 14,
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  mottoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  mottoText: {
     fontSize: 13,
-    fontWeight: '600',
-    fontStyle: 'italic',
+    fontWeight: '500',
+    marginBottom: 18,
+    textAlign: 'center',
   },
   actionContainer: {
     width: '100%',
   },
 });
-

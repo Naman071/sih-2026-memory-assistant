@@ -68,7 +68,7 @@ export default function GamesScreen() {
             style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
             onPress={() => setSelectedGame('ubilakapki')}
             accessibilityRole="button"
-            accessibilityLabel={`${t('games.ubilakapki.title', '🥥 Ubilakapki Coconut Toss')}, ${t('games.ubilakapki.tagline', 'Watch the circle · Remember who holds the coconut')}`}
+            accessibilityLabel={`${t('games.ubilakapki.title', 'Ubilakapki Coconut Toss')}, ${t('games.ubilakapki.tagline', 'Watch the circle closely, remember the movement, and recall where the coconut goes.')}`}
           >
             <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#451A03' : '#FEF3C7' }]}>
               <Ionicons name="ellipse-outline" size={24} color="#B45309" />
@@ -85,25 +85,25 @@ export default function GamesScreen() {
                 </View>
               </View>
               <Text style={[styles.menuCardSub, { color: theme.subText }]}>
-                {t('games.ubilakapki.tagline', 'Watch the circle · Remember who holds the coconut')}
+                {t('games.ubilakapki.tagline', 'Watch the circle closely, remember the movement, and recall where the coconut goes.')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
 
-          {/* NORTH EAST PHOTO MEMORY */}
+          {/* SINAKI STHAN (PHOTO MEMORY) */}
           <TouchableOpacity
             style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
             onPress={() => setSelectedGame('northeast')}
             accessibilityRole="button"
-            accessibilityLabel={`${t('games.northeastTitle', '🏞️ North East Memory')}, ${t('games.northeastSub', 'Observe scenic photos & recall details')}`}
+            accessibilityLabel={`${t('games.northeastTitle', '🏞️ Sinaki Sthan')}, ${t('games.northeastSub', 'Observe scenic photos & recall details')}`}
           >
             <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#064E3B' : '#D1FAE5' }]}>
               <Ionicons name="image-outline" size={24} color="#059669" />
             </View>
             <View style={styles.cardTextContainer}>
               <Text style={[styles.menuCardTitle, { color: theme.text }]}>
-                {t('games.northeastTitle', '🏞️ North East Memory')}
+                {t('games.northeastTitle', '🏞️ Sinaki Sthan')}
               </Text>
               <Text style={[styles.menuCardSub, { color: theme.subText }]}>
                 {t('games.northeastSub', 'Observe scenic photos & recall details')}
@@ -130,14 +130,25 @@ export default function GamesScreen() {
             style={[styles.menuCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
             onPress={() => setSelectedGame('stories')}
             accessibilityRole="button"
-            accessibilityLabel={`${t('games.memoryStoriesTitle')}, ${t('games.memoryStoriesSub')}`}
+            accessibilityLabel={`${t('games.memoryStoriesTitle', '📖 Xuworoni Kotha')}, ${t('games.memoryStoriesSub', 'Read traditional stories and recall details')}`}
           >
             <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
               <Ionicons name="book-outline" size={24} color={theme.primary} />
             </View>
             <View style={styles.cardTextContainer}>
-              <Text style={[styles.menuCardTitle, { color: theme.text }]}>{t('games.memoryStoriesTitle')}</Text>
-              <Text style={[styles.menuCardSub, { color: theme.subText }]}>{t('games.memoryStoriesSub')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <Text style={[styles.menuCardTitle, { color: theme.text, marginBottom: 0 }]}>
+                  {t('games.memoryStoriesTitle', '📖 Xuworoni Kotha')}
+                </Text>
+                <View style={{ backgroundColor: isDarkMode ? '#1E3A8A' : '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#DBEAFE' : '#1E40AF' }}>
+                    {t('games.suhTahLam.culturalCategory', 'CULTURAL MEMORY')}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.menuCardSub, { color: theme.subText }]}>
+                {t('games.memoryStoriesSub', 'Read short stories and recall details')}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>

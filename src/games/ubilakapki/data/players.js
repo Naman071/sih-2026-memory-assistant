@@ -41,8 +41,8 @@ export const PLAYER_ARCHETYPES = [
     id: 'C',
     key: 'playerC',
     code: 'C',
-    label: 'Bobita',
-    nameFallback: 'Bobita',
+    label: 'Bibita',
+    nameFallback: 'Bibita',
     color: '#D97706', // Golden Amber
     lightColor: '#FEF3C7',
     borderColor: '#B45309',

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 720px;
+      height: 480px;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F4F7F4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .canvas-container {
+      width: 720px;
+      height: 480px;
+      position: relative;
+      background: linear-gradient(180deg, #FDE68A 0%, #FEF3C7 30%, #E2F0D9 70%, #C7E4C7 100%);
+      overflow: hidden;
+    }
+
+    /* Sun */
+    .morning-sun {
+      position: absolute;
+      top: 36px;
+      right: 140px;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #F59E0B 0%, #FBBF24 50%, rgba(251, 191, 36, 0.2) 100%);
+      box-shadow: 0 0 40px rgba(245, 158, 11, 0.45);
+    }
+
+    /* Sun rays / glow */
+    .sun-glow {
+      position: absolute;
+      top: 18px;
+      right: 122px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(254, 243, 199, 0.6) 0%, rgba(254, 243, 199, 0) 70%);
+    }
+
+    /* Distant Hills */
+    .distant-hills {
+      position: absolute;
+      bottom: 110px;
+      left: 0;
+      width: 100%;
+      height: 180px;
+    }
+
+    /* Foreground Tea Garden Hills */
+    .tea-hills {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 190px;
+    }
+
+    /* Veranda Floor / Deck */
+    .porch-floor {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 115px;
+      background: linear-gradient(180deg, #E6D5B8 0%, #D4C3A3 40%, #C2AF8C 100%);
+      border-top: 4px solid #A89370;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+    }
+    .wood-plank {
+      position: absolute;
+      width: 100%;
+      height: 1px;
+      background: rgba(138, 114, 78, 0.3);
+    }
+
+    /* Traditional Bamboo Railing */
+    .bamboo-rail {
+      position: absolute;
+      bottom: 115px;
+      left: 0;
+      width: 100%;
+      height: 48px;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+      padding: 0 30px;
+    }
+    .bamboo-post {
+      width: 14px;
+      height: 48px;
+      background: linear-gradient(90deg, #855A2F 0%, #B4834D 50%, #744D25 100%);
+      border-radius: 4px;
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+    }
+    .bamboo-crossbar {
+      position: absolute;
+      top: 8px;
+      left: 0;
+      width: 100%;
+      height: 10px;
+      background: linear-gradient(180deg, #B4834D 0%, #855A2F 100%);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .bamboo-crossbar-2 {
+      position: absolute;
+      top: 26px;
+      left: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(180deg, #B4834D 0%, #855A2F 100%);
+    }
+
+    /* Characters Illustration Canvas */
+    .characters-svg {
+      position: absolute;
+      bottom: 10px;
+      left: 120px;
+      width: 480px;
+      height: 330px;
+      z-index: 10;
+    }
+
+    /* Jaapi Emblem Badge */
+    .jaapi-badge {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px 6px 8px;
+      border-radius: 30px;
+      border: 1px solid rgba(22, 163, 74, 0.25);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      z-index: 20;
+    }
+    .jaapi-badge-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .jaapi-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #14532D;
+      letter-spacing: -0.2px;
+    }
+    .jaapi-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: #15803D;
+    }
+
+    /* Ambient Leaves floating in breeze */
+    .leaf-1 {
+      position: absolute;
+      top: 140px;
+      left: 80px;
+      transform: rotate(25deg);
+      opacity: 0.85;
+    }
+    .leaf-2 {
+      position: absolute;
+      top: 80px;
+      right: 70px;
+      transform: rotate(-35deg);
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas-container">
+    <!-- Sun & Sky Glow -->
+    <div class="sun-glow"></div>
+    <div class="morning-sun"></div>
+
+    <!-- Distant Mountains of North-East -->
+    <svg class="distant-hills" viewBox="0 0 720 180" fill="none" preserveAspectRatio="none">
+      <!-- Blue-purple mountain layer -->
+      <path d="M0,180 L0,85 Q70,40 140,75 Q210,110 280,60 Q360,10 440,55 Q510,95 590,50 Q660,15 720,65 L720,180 Z" fill="#9FB5B0" opacity="0.65"/>
+      <!-- Soft blue mid-mountains -->
+      <path d="M0,180 L0,105 Q90,70 180,95 Q270,120 370,80 Q470,40 560,85 Q640,120 720,95 L720,180 Z" fill="#88A89A" opacity="0.8"/>
+    </svg>
+
+    <!-- Lush Green Tea Gardens / Slopes -->
+    <svg class="tea-hills" viewBox="0 0 720 190" fill="none" preserveAspectRatio="none">
+      <!-- Back tea ridge -->
+      <path d="M0,190 L0,90 Q120,40 260,75 Q400,110 540,60 Q640,25 720,70 L720,190 Z" fill="#4B8159"/>
+      <!-- Mid lush ridge -->
+      <path d="M0,190 L0,120 Q100,85 220,105 Q350,130 480,90 Q600,50 720,100 L720,190 Z" fill="#3D704B"/>
+      <!-- Front tea contour stripes -->
+      <path d="M20,130 Q120,105 240,125 Q360,145 470,110" stroke="#5E966C" stroke-width="4" stroke-dasharray="12 6" fill="none" opacity="0.7"/>
+      <path d="M40,150 Q160,125 280,145 Q400,165 520,130" stroke="#5E966C" stroke-width="4" stroke-dasharray="14 7" fill="none" opacity="0.7"/>
+      <!-- Small tea bush clusters -->
+      <circle cx="80" cy="115" r="9" fill="#589066"/>
+      <circle cx="92" cy="113" r="8" fill="#68A276"/>
+      <circle cx="102" cy="116" r="7" fill="#589066"/>
+      <circle cx="620" cy="85" r="10" fill="#589066"/>
+      <circle cx="634" cy="83" r="9" fill="#68A276"/>
+      <circle cx="645" cy="87" r="8" fill="#589066"/>
+    </svg>
+
+    <!-- Porch & Railing -->
+    <div class="bamboo-rail">
+      <div class="bamboo-crossbar"></div>
+      <div class="bamboo-crossbar-2"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+      <div class="bamboo-post"></div>
+    </div>
+    <div class="porch-floor">
+      <div class="wood-plank" style="top: 28px;"></div>
+      <div class="wood-plank" style="top: 56px;"></div>
+      <div class="wood-plank" style="top: 84px;"></div>
+    </div>
+
+    <!-- Jaapi Cultural Brand Badge -->
+    <div class="jaapi-badge">
+      <!-- Miniature Traditional Assamese Jaapi SVG -->
+      <svg width="34" height="34" viewBox="0 0 100 100">
+        <!-- Conical Bamboo Base -->
+        <polygon points="50,12 88,82 12,82" fill="#E8D5A3" stroke="#8C6239" stroke-width="4" stroke-linejoin="round"/>
+        <!-- Red Felt Trimmings (Traditional Jaapi petals) -->
+        <polygon points="50,26 62,50 38,50" fill="#C53030"/>
+        <polygon points="50,50 68,78 32,78" fill="#DC2626"/>
+        <!-- Decorative Red Diamond Border Dots -->
+        <circle cx="26" cy="78" r="4" fill="#991B1B"/>
+        <circle cx="50" cy="78" r="4" fill="#991B1B"/>
+        <circle cx="74" cy="78" r="4" fill="#991B1B"/>
+        <circle cx="50" cy="12" r="5" fill="#DC2626"/>
+      </svg>
+      <div class="jaapi-badge-text">
+        <span class="jaapi-title">Noklai • Smriti-Setu</span>
+        <span class="jaapi-sub">Culture & Memory Care</span>
+      </div>
+    </div>
+
+    <!-- Gentle Tea Leaves in breeze -->
+    <svg class="leaf-1" width="36" height="24" viewBox="0 0 36 24">
+      <path d="M2,12 Q18,2 34,12 Q18,22 2,12 Z" fill="#16A34A"/>
+      <path d="M2,12 L30,12" stroke="#15803D" stroke-width="1.5"/>
+    </svg>
+    <svg class="leaf-2" width="30" height="20" viewBox="0 0 30 20">
+      <path d="M2,10 Q15,2 28,10 Q15,18 2,10 Z" fill="#22C55E"/>
+      <path d="M2,10 L25,10" stroke="#16A34A" stroke-width="1.2"/>
+    </svg>
+
+    <!-- Warm Main Characters: Elder Grandmother (Aaji) & Caring Grandchild -->
+    <svg class="characters-svg" viewBox="0 0 480 330">
+      <defs>
+        <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="125%">
+          <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1A2E1A" flood-opacity="0.18"/>
+        </filter>
+      </defs>
+
+      <!-- Soft Ground Shadow under bench -->
+      <ellipse cx="235" cy="305" rx="195" ry="14" fill="#887352" opacity="0.38"/>
+
+      <!-- Traditional Wooden Cane Bench -->
+      <rect x="75" y="240" width="320" height="14" rx="4" fill="#9C6634" stroke="#683F16" stroke-width="2"/>
+      <!-- Bench Legs -->
+      <rect x="90" y="254" width="14" height="48" rx="2" fill="#7C4B1E"/>
+      <rect x="365" y="254" width="14" height="48" rx="2" fill="#7C4B1E"/>
+      <rect x="230" y="254" width="12" height="48" rx="2" fill="#7C4B1E"/>
+      <!-- Cross support bar -->
+      <rect x="94" y="280" width="280" height="8" rx="2" fill="#5F3612"/>
+
+      <!-- ==================== ELDER GRANDMOTHER (LEFT) ==================== -->
+      <g filter="url(#soft-shadow)">
+        <!-- Grandmother Lower Body / Mekhela (Traditional Assamese cream silk with red borders) -->
+        <path d="M125,190 L110,290 L210,290 L195,190 Z" fill="#FDFBF7" stroke="#DCD6C8" stroke-width="2"/>
+        <!-- Red woven border hem (Kingkhap pattern hint) -->
+        <rect x="110" y="278" width="100" height="12" fill="#B91C1C" rx="2"/>
+        <line x1="112" y1="284" x2="208" y2="284" stroke="#FDE68A" stroke-width="2" stroke-dasharray="4 3"/>
+
+        <!-- Upper Torso / Sador (Cream silk shawl draped across shoulder) -->
+        <path d="M130,135 Q160,125 190,140 Q205,175 198,225 Q160,235 125,225 Z" fill="#FAF5EB" stroke="#D1C7B7" stroke-width="1.5"/>
+        <!-- Sador Red Border Drape -->
+        <path d="M136,138 Q158,165 168,226 Q178,226 182,215 Q172,160 152,135 Z" fill="#B91C1C"/>
+        <path d="M140,142 Q160,170 170,224" stroke="#FDE68A" stroke-width="1.8" stroke-dasharray="3 2"/>
+
+        <!-- Neck -->
+        <rect x="153" y="112" width="18" height="25" rx="4" fill="#E2B18A"/>
+
+        <!-- Head / Face (Elderly serene expression) -->
+        <circle cx="162" cy="98" r="28" fill="#EDC29D"/>
+        <!-- Soft silver hair bun -->
+        <ellipse cx="162" cy="74" rx="26" ry="16" fill="#D1D5DB"/>
+        <ellipse cx="138" cy="85" rx="10" ry="14" fill="#9CA3AF"/>
+        <ellipse cx="186" cy="85" rx="10" ry="14" fill="#9CA3AF"/>
+        <!-- Traditional hair bun behind -->
+        <circle cx="132" cy="78" r="10" fill="#9CA3AF"/>
+
+        <!-- Eyes (Closed smiling crescent eyes representing peace & warmth) -->
+        <path d="M148,96 Q153,92 158,96" stroke="#4B3621" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M166,96 Q171,92 176,96" stroke="#4B3621" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <!-- Red Bindi -->
+        <circle cx="162" cy="88" r="3" fill="#DC2626"/>
+        <!-- Gentle smile -->
+        <path d="M155,108 Q162,115 169,108" stroke="#8A3B22" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <!-- Rosy elder cheeks -->
+        <circle cx="147" cy="103" r="5" fill="#FCA5A5" opacity="0.45"/>
+        <circle cx="177" cy="103" r="5" fill="#FCA5A5" opacity="0.45"/>
+
+        <!-- Grandmother Hands resting gently on lap holding a tea cup -->
+        <!-- Ceramic cup with warm tea -->
+        <path d="M152,196 L154,212 Q162,217 170,212 L172,196 Z" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+        <path d="M155,198 Q162,201 169,198" fill="#854D0E"/>
+        <path d="M172,200 Q177,204 172,208" stroke="#CBD5E1" stroke-width="1.5" fill="none"/>
+        <!-- Warm steam curl -->
+        <path d="M161,192 Q164,186 160,181 Q163,176 161,172" stroke="#E2E8F0" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+        <!-- Gentle hands holding cup -->
+        <ellipse cx="148" cy="204" rx="8" ry="7" fill="#E2B18A"/>
+        <ellipse cx="175" cy="204" rx="8" ry="7" fill="#E2B18A"/>
+      </g>
+
+      <!-- ==================== YOUNG CAREGIVER / GRANDCHILD (RIGHT) ==================== -->
+      <g filter="url(#soft-shadow)">
+        <!-- Caregiver Sitting turned attentively towards grandmother -->
+        <!-- Legs / Pants (Deep indigo/slate) -->
+        <path d="M265,210 L255,292 L330,292 L335,210 Z" fill="#2E4057" stroke="#1E2B3A" stroke-width="1.5"/>
+        <!-- Shoes -->
+        <ellipse cx="265" cy="296" rx="14" ry="6" fill="#1F2937"/>
+        <ellipse cx="320" cy="296" rx="14" ry="6" fill="#1F2937"/>
+
+        <!-- Caregiver Kurta / Shirt (Gentle soft emerald / mint green) -->
+        <path d="M255,145 Q290,135 325,145 L335,225 Q290,230 255,225 Z" fill="#15803D" stroke="#166534" stroke-width="1.5"/>
+
+        <!-- Arm extending affectionately around grandmother / holding memory album -->
+        <path d="M252,158 Q218,172 205,192" stroke="#15803D" stroke-width="16" stroke-linecap="round" fill="none"/>
+        <!-- Hand gently touching grandmother's shoulder / arm in support -->
+        <ellipse cx="202" cy="192" rx="9" ry="8" fill="#DCA376"/>
+
+        <!-- Neck -->
+        <rect x="282" y="120" width="16" height="22" rx="3" fill="#E2A97C"/>
+
+        <!-- Head / Face -->
+        <circle cx="290" cy="104" r="26" fill="#EDB88B"/>
+        <!-- Youthful black hair with modern neat styling -->
+        <path d="M266,102 Q270,78 290,78 Q312,78 316,98 Q305,92 290,92 Q275,92 266,102 Z" fill="#1E242B"/>
+        <ellipse cx="292" cy="80" rx="22" ry="10" fill="#1E242B"/>
+
+        <!-- Eyes (Kind, attentive smile directed at grandmother) -->
+        <ellipse cx="279" cy="103" rx="3.5" ry="3.5" fill="#2B1810"/>
+        <ellipse cx="295" cy="103" rx="3.5" ry="3.5" fill="#2B1810"/>
+        <!-- Catchlight in eye -->
+        <circle cx="278" cy="102" r="1" fill="#FFFFFF"/>
+        <circle cx="294" cy="102" r="1" fill="#FFFFFF"/>
+        <!-- Warm smile -->
+        <path d="M281,114 Q287,121 294,114" stroke="#78350F" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+
+        <!-- Interactive Memory Tablet / Photo Book on caregiver's lap -->
+        <rect x="272" y="196" width="46" height="34" rx="4" fill="#FEF3C7" stroke="#D97706" stroke-width="2" transform="rotate(-6 295 213)"/>
+        <!-- Heart / Leaf memory icon on book -->
+        <circle cx="295" cy="212" r="7" fill="#DC2626" opacity="0.85"/>
+        <circle cx="292" cy="210" r="3.5" fill="#EF4444"/>
+        <circle cx="298" cy="210" r="3.5" fill="#EF4444"/>
+      </g>
+
+      <!-- Traditional Bamboo Side Stool with Small Plant Pot -->
+      <g>
+        <rect x="395" y="235" width="48" height="10" rx="3" fill="#8C5C2C"/>
+        <rect x="403" y="245" width="8" height="52" rx="2" fill="#6B4219"/>
+        <rect x="427" y="245" width="8" height="52" rx="2" fill="#6B4219"/>
+        <!-- Terracotta Pot -->
+        <path d="M407,235 L411,215 L427,215 L431,235 Z" fill="#C2410C"/>
+        <!-- Green Bamboo / Tea Sprout -->
+        <path d="M419,215 Q412,198 406,192" stroke="#16A34A" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <path d="M419,215 Q426,196 434,194" stroke="#15803D" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M419,215 Q420,185 418,178" stroke="#22C55E" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>
+

@@ -422,8 +422,8 @@ export function NoklaiProvider({ children }) {
       { id: 'suh_tah_lam', name: 'Suh Tah Lam (Bamboo Rhythm)', icon: 'musical-notes-outline', category: 'Rhythm & Sequence' },
       { id: 'ubilakapki', name: 'Ubilakapki Coconut Toss', icon: 'ellipse-outline', category: 'Spatial Tracking' },
       { id: 'dhop_khel', name: 'Dhopkhel Catch', icon: 'football-outline', category: 'Coordination & Focus' },
-      { id: 'northeast_memory', name: 'North East Scenic Memory', icon: 'images-outline', category: 'Cultural Visual Memory' },
-      { id: 'memory_stories', name: 'Memory Stories', icon: 'book-outline', category: 'Narrative Recall' },
+      { id: 'northeast_memory', name: 'Sinaki Sthan', icon: 'images-outline', category: 'Cultural Visual Memory' },
+      { id: 'memory_stories', name: 'Xuworoni Kotha', icon: 'book-outline', category: 'Cultural Memory' },
     ];
 
     if (!analyticsData?.gameBreakdown || analyticsData.gameBreakdown.length === 0) {

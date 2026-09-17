@@ -335,7 +335,7 @@
     },
     "ubilakapki": {
       "title": "Ubilakapki Coconut Toss",
-      "tagline": "Watch the circle · Remember who holds the coconut",
+      "tagline": "Watch the circle closely, remember the movement, and recall where the coconut goes.",
       "subtitle": "Traditional Northeast Indian Coconut Passing Game",
       "culturalNotice": "Inspired by Northeast Indian Traditional Games",
       "takeYourTime": "Take your time • No rush",
@@ -357,8 +357,8 @@
       "score": "Score",
       "difficulty": "Difficulty",
       "easy": "Easy (3 Players)",
-      "medium": "Medium (4 Players)",
-      "hard": "Hard (5 Players)",
+      "medium": "Medium (3 Players)",
+      "hard": "Hard (3 Players)",
       "passingInProgress": "Watch closely as the coconut is passed...",
       "passedFromTo": "%{from} passed to %{to}",
       "praise1": "Well Remembered!",
@@ -368,13 +368,13 @@
       "players": {
         "A": "Jonali",
         "B": "Rupjyoti",
-        "C": "Bobita",
+        "C": "Bibita",
         "D": "Debajit",
         "E": "Anamika"
       },
       "playerA": "Jonali",
       "playerB": "Rupjyoti",
-      "playerC": "Bobita",
+      "playerC": "Bibita",
       "playerD": "Debajit",
       "playerE": "Anamika",
       "attires": {
@@ -511,7 +511,7 @@
       }
     },
     "subtitle": "Select an exercise to help maintain cognitive function and memory.",
-    "northeastTitle": "🏞️ North East Memory",
+    "northeastTitle": "🏞️ Sinaki Sthan",
     "northeastSub": "Observe scenic photos & recall details",
     "sequenceSub": "Practice pattern recognition",
     "memoryMatchSub": "Improve short-term memory",
@@ -519,7 +519,7 @@
     "sortingSub": "Categorize objects",
     "memoryPathSub": "Recall sequences",
     "northeastGame": {
-      "title": "North East Photo Memory",
+      "title": "Sinaki Sthan",
       "tagline": "Observe scenic photos & recall details",
       "desc": "Look at the image carefully and remember details. Answer questions to test your recall.",
       "selectDifficulty": "Select Difficulty:",

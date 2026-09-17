@@ -389,9 +389,9 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
       case 'dhop_khel':
         return 'Dhopkhel Memory';
       case 'northeast_memory':
-        return 'North East Scenic Memory';
+        return 'Sinaki Sthan';
       case 'memory_stories':
-        return 'Xuworoni Kotha (Memory Stories)';
+        return 'Xuworoni Kotha';
       default:
         return 'Cognitive Exercise';
     }

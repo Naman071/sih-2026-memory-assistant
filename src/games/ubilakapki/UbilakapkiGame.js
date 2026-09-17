@@ -1,13 +1,19 @@
 /**
- * UBILAKAPKI - Culturally Inspired 3D Cognitive Memory Game
- * React Native | 3D / WebGL | Offline-First | Adaptive Performance
+ * UBILAKAPKI - Culturally Familiar Cognitive Coconut Passing Game
+ * SIH 2026 Memory Assistant | Offline-First | Adaptive Performance
  * 
- * Designed for elderly individuals & dementia patients in Northeast India:
- * - Traditional Northeast Indian coconut passing game
- * - Realistic 3D kinematics, circular arena, and physical arc trajectory
- * - Zero timer pressure, dignified calming feedback
+ * Restored Authentic Northeast Indian Version:
+ * - Screen 2: Header with Back button, Title: Ubilakapki Coconut Toss, Language selector, Round indicator
+ * - Main Game Board: Rectangular board with rounded corners, outdoor Northeast scene (sky, mountains, trees, brown earthen ground, circular chalk ring)
+ * - 3 Players in triangular formation: Jonali (Terracotta), Rupjyoti (Forest Jade), Bibita (Golden Amber)
+ * - Parabolic coconut toss trajectory with spinning arc
+ * - Step 1: Observe passing
+ * - Step 2: Remember (coconut stops or hides; question asks who has the coconut)
+ * - Step 3: Large answer buttons (Jonali, Rupjyoti, Bibita)
+ * - Step 4: Clear, calm, respectful feedback
+ * - Step 5: Next Round button
+ * - Pause / Exit: "Leave this game?" dialog preserving progress
  * - Centralized PerformanceTracker integration with Supabase persistence
- * - Multilingual: English, Assamese, Bengali, and Hindi
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -18,14 +24,11 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   Platform,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThreeSceneView } from './components/ThreeSceneView.js';
-import { QuestionScreen } from './components/QuestionScreen.js';
-import { ResultScreen } from './components/ResultScreen.js';
 import { PauseMenu } from './components/PauseMenu.js';
 import { SessionManager } from './engine/SessionManager.js';
 import { useTheme } from '../../context/ThemeContext';
@@ -33,10 +36,14 @@ import { useLanguage } from '../../context/LanguageContext';
 import { usePatient } from '../../context/PatientContext';
 import { PerformanceTracker } from '../../modules/performance';
 import LanguageSelector from '../../components/LanguageSelector';
-import { REGIONS, DEFAULT_REGION } from './data/regions.js';
+import { PLAYER_ARCHETYPES } from './data/players.js';
+import {
+  getLocalizedPlayerName,
+  getLocalizedPlayerAttire,
+  getLocalizedPrompt,
+} from './utils/localization.js';
 
 const SCREENS = {
-  INTRO: 'intro',
   OBSERVE: 'observe',
   QUESTION: 'question',
   RESULT: 'result',
@@ -63,7 +70,7 @@ export default function UbilakapkiGame({ onExit }) {
   const audioCtxRef = useRef(null);
 
   // Gameplay State
-  const [currentScreen, setCurrentScreen] = useState(SCREENS.INTRO);
+  const [currentScreen, setCurrentScreen] = useState(SCREENS.OBSERVE);
   const [roundData, setRoundData] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [pauseMenuVisible, setPauseMenuVisible] = useState(false);
@@ -73,10 +80,9 @@ export default function UbilakapkiGame({ onExit }) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [regionId, setRegionId] = useState('assam');
   const [currentDifficulty, setCurrentDifficulty] = useState('easy');
 
-  // Sound Synthesizer (Soft natural percussion for catch & chime for success)
+  // Soft natural percussion for catch
   const playCatchSound = useCallback(() => {
     if (!soundEnabled) return;
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -107,11 +113,12 @@ export default function UbilakapkiGame({ onExit }) {
           osc.stop(now + 0.09);
         }
       } catch (e) {
-        // Safe audio fallback
+        // Safe fallback
       }
     }
   }, [soundEnabled]);
 
+  // Melodic chime on correct answer
   const playSuccessChime = useCallback(() => {
     if (!soundEnabled) return;
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -142,12 +149,41 @@ export default function UbilakapkiGame({ onExit }) {
           osc.stop(now + 0.32);
         }
       } catch (e) {
-        // Safe audio fallback
+        // Safe fallback
       }
     }
   }, [soundEnabled]);
 
-  // Initialize Session on Mount
+  // Start Next Round
+  const startRound = useCallback(() => {
+    const nextData = sessionManagerRef.current.startNextRound();
+    setRoundData(nextData);
+    setSelectedAnswer(null);
+    setIsSubmitted(false);
+    setIsPaused(false);
+    setCurrentDifficulty(nextData.difficulty);
+    setCurrentScreen(SCREENS.OBSERVE);
+
+    // Track round start in centralized PerformanceTracker
+    trackerRef.current?.startRound({
+      difficulty: nextData.difficulty,
+      sequenceLength: nextData.sequence?.passes?.length || 4,
+      metadata: {
+        playerCount: 3,
+        finalHolder: nextData.sequence?.finalHolder,
+      },
+    });
+
+    // Mount sequence into the stage
+    setTimeout(() => {
+      if (stageRef.current && nextData.sequence) {
+        stageRef.current.showCoconut?.();
+        stageRef.current.playSequence(nextData.sequence);
+      }
+    }, 450);
+  }, []);
+
+  // Initialize Session and start Round 1 on Mount
   useEffect(() => {
     let isMounted = true;
     sessionManagerRef.current.startSession('easy');
@@ -168,50 +204,26 @@ export default function UbilakapkiGame({ onExit }) {
         console.warn('Ubilakapki PerformanceTracker initialize notice:', err);
       });
 
+    // Auto-start round 1
+    startRound();
+
     return () => {
       isMounted = false;
       trackerRef.current?.endSession();
     };
-  }, [activePlayerId]);
+  }, [activePlayerId, startRound]);
 
-  // Start Next Round (Automatically guided by DifficultyEngine)
-  const startRound = useCallback(() => {
-    const nextData = sessionManagerRef.current.startNextRound();
-    setRoundData(nextData);
-    setSelectedAnswer(null);
-    setIsSubmitted(false);
-    setIsPaused(false);
-    setCurrentDifficulty(nextData.difficulty);
-    setCurrentScreen(SCREENS.OBSERVE);
-
-    // Track round start in centralized PerformanceTracker
-    trackerRef.current?.startRound({
-      difficulty: nextData.difficulty,
-      sequenceLength: nextData.sequence?.passes?.length || 4,
-      metadata: {
-        playerCount: nextData.sequence?.playerCount || 3,
-        finalHolder: nextData.sequence?.finalHolder,
-      },
-    });
-
-    // Mount sequence into the stage
-    setTimeout(() => {
-      if (stageRef.current && nextData.sequence) {
-        stageRef.current.playSequence(nextData.sequence);
-      }
-    }, 450);
-  }, []);
-
-  // Sequence Finished Callback from 3D Viewport
+  // Sequence Finished Callback from Stage View
   const handleSequenceFinished = useCallback(() => {
+    stageRef.current?.hideCoconut?.();
     setTimeout(() => {
       setCurrentScreen(SCREENS.QUESTION);
       trackerRef.current?.recordRecallStart();
       sessionManagerRef.current.recordRecallStart();
-    }, 500);
+    }, 300);
   }, []);
 
-  // Answer Submission Handler
+  // Answer Selection Handler
   const handleSelectAnswer = useCallback(
     async (playerId) => {
       if (isSubmitted) return;
@@ -226,7 +238,7 @@ export default function UbilakapkiGame({ onExit }) {
       }
 
       // Record in local session engine
-      const roundResult = await sessionManagerRef.current.endRound(playerId, correct);
+      await sessionManagerRef.current.endRound(playerId, correct);
 
       // Record in centralized adaptive PerformanceTracker
       if (trackerRef.current) {
@@ -235,7 +247,7 @@ export default function UbilakapkiGame({ onExit }) {
           correctAnswer: roundData?.question?.correctAnswer,
           isCorrect: correct,
           metadata: {
-            playerCount: roundData?.sequence?.playerCount,
+            playerCount: 3,
             difficulty: roundData?.difficulty,
           },
         });
@@ -252,10 +264,8 @@ export default function UbilakapkiGame({ onExit }) {
         }
       }
 
-      // Transition to Result Screen
-      setTimeout(() => {
-        setCurrentScreen(SCREENS.RESULT);
-      }, 350);
+      // Transition to Result
+      setCurrentScreen(SCREENS.RESULT);
     },
     [isSubmitted, roundData, playSuccessChime]
   );
@@ -282,7 +292,6 @@ export default function UbilakapkiGame({ onExit }) {
     if (roundData && currentScreen === SCREENS.OBSERVE) {
       trackerRef.current?.abandonRound();
     }
-    // Explicitly persist the current analyzed difficulty level so it's safely saved in stats
     if (trackerRef.current) {
       const activeProf = trackerRef.current.profile || {};
       const currentLevel = sessionManagerRef.current.difficultyEngine.getLevel();
@@ -303,22 +312,44 @@ export default function UbilakapkiGame({ onExit }) {
   const handleReplay = useCallback(() => {
     if (roundData?.sequence && stageRef.current) {
       trackerRef.current?.recordEvent('replay_used');
+      stageRef.current.showCoconut?.();
+      setCurrentScreen(SCREENS.OBSERVE);
       stageRef.current.playSequence(roundData.sequence);
     }
   }, [roundData]);
 
-  const activePlayerCount = roundData?.sequence?.playerCount || (currentDifficulty === 'hard' ? 5 : currentDifficulty === 'medium' ? 4 : 3);
+  // Determine round indicator text for Header
+  const roundNumber = roundData?.roundNumber || 1;
+  let roundIndicatorStatus = t('games.ubilakapki.passingInProgress') || 'Watch closely as the coconut is passed...';
+  if (currentScreen === SCREENS.QUESTION) {
+    roundIndicatorStatus = t('games.ubilakapki.questionPrompt') || 'Who was holding the coconut at the end?';
+  } else if (currentScreen === SCREENS.RESULT) {
+    roundIndicatorStatus = isCorrect
+      ? (t('games.ubilakapki.wellRemembered') || 'Well Remembered!')
+      : (t('games.ubilakapki.goodTry') || "That's okay!");
+  }
+
+  // The 3 authentic players
+  const activePlayers = PLAYER_ARCHETYPES.slice(0, 3);
+  const correctHolderId = roundData?.question?.correctAnswer || 'A';
+  const correctHolderName = getLocalizedPlayerName(correctHolderId, t, currentLanguage);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Header Bar */}
+        {/* ========================================================
+            HEADER BAR
+            - Back button
+            - Title: Ubilakapki Coconut Toss
+            - Language selector
+            - Round indicator: Round 1 | Watch closely as the coconut is passed...
+            ======================================================== */}
         <View style={styles.headerBar}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={handlePauseRequest}
             accessibilityRole="button"
-            accessibilityLabel={t('games.ubilakapki.pause') || 'Pause'}
+            accessibilityLabel={t('games.ubilakapki.pause') || 'Pause / Exit'}
             activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -326,15 +357,15 @@ export default function UbilakapkiGame({ onExit }) {
 
           <View style={styles.headerTitleGroup}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {t('games.ubilakapki.title') || 'Ubilakapki'}
+              {t('games.ubilakapki.title') || 'Ubilakapki Coconut Toss'}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {t('games.ubilakapki.culturalNotice') || 'Northeast India'}
+              {t('games.ubilakapki.round') || 'Round'} {roundNumber} | {roundIndicatorStatus}
             </Text>
           </View>
 
           <View style={styles.headerControls}>
-            {/* Multilingual Quick Selector */}
+            {/* Quick Language Selector */}
             <LanguageSelector compact />
 
             {/* Audio Toggle */}
@@ -347,7 +378,7 @@ export default function UbilakapkiGame({ onExit }) {
             >
               <Ionicons
                 name={soundEnabled ? 'volume-high' : 'volume-mute'}
-                size={22}
+                size={20}
                 color={soundEnabled ? '#2D6A4F' : '#9CA3AF'}
               />
             </TouchableOpacity>
@@ -360,130 +391,268 @@ export default function UbilakapkiGame({ onExit }) {
               accessibilityLabel="Clinical Analytics"
               activeOpacity={0.7}
             >
-              <Ionicons name="stats-chart" size={20} color="#2D6A4F" />
+              <Ionicons name="stats-chart" size={18} color="#2D6A4F" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Content Area */}
-        {currentScreen === SCREENS.INTRO && (
-          <ScrollView
-            contentContainerStyle={styles.introScroll}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.introCard}>
-              <View style={styles.introHeroIcon}>
-                <Ionicons name="ellipse" size={54} color="#78350F" />
-              </View>
-
-              <Text style={styles.introTitle}>
-                {t('games.ubilakapki.title') || 'Ubilakapki Coconut Toss'}
-              </Text>
-              <Text style={styles.introTagline}>
-                {t('games.ubilakapki.tagline') ||
-                  'Watch the circle · Remember who holds the coconut'}
-              </Text>
-
-              <View style={styles.introInstructionsBox}>
-                <Text style={styles.instructionStep}>
-                  1. <Text style={styles.stepBold}>Watch closely:</Text> Players pass the coconut around the arena.
-                </Text>
-                <Text style={styles.instructionStep}>
-                  2. <Text style={styles.stepBold}>Remember:</Text> Notice who is holding the coconut at the end.
-                </Text>
-                <Text style={styles.instructionStep}>
-                  3. <Text style={styles.stepBold}>Answer:</Text> Tap the player who caught it last.
-                </Text>
-              </View>
-
-              {/* Start Exercise Button */}
-              <TouchableOpacity
-                style={styles.startExerciseBtn}
-                onPress={() => startRound()}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="play-circle" size={28} color="#FFFFFF" />
-                <Text style={styles.startExerciseText}>
-                  {t('games.dhopkhel.start') || 'Start Exercise'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        )}
-
-        {currentScreen === SCREENS.OBSERVE && (
-          <View style={styles.stageWrapper}>
-            {/* Status & Replay Bar */}
-            <View style={styles.statusBar}>
-              <View style={styles.roundPill}>
-                <Text style={styles.roundPillText}>
-                  {t('games.ubilakapki.round') || 'Round'} {roundData?.roundNumber || 1}
-                </Text>
-              </View>
-              <Text style={styles.statusObservationText}>
-                {t('games.ubilakapki.passingInProgress') || 'Watch closely...'}
-              </Text>
-              <TouchableOpacity
-                style={styles.replaySmallBtn}
-                onPress={handleReplay}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="refresh" size={18} color="#2D6A4F" />
-                <Text style={styles.replaySmallText}>Replay</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 3D Circular Arena Viewport */}
+        {/* ========================================================
+            MAIN GAMEPLAY VIEWPORT
+            - Main Game Board: Rectangular board with rounded corners,
+              outdoor Northeast India scene, 3 players (Jonali, Rupjyoti, Bibita)
+            - Step 1 (Observe): 3 players passing coconut
+            - Step 2 (Remember): Coconut stops or hides; question asks who has it
+            - Step 3 (Answer): Large answer buttons (Jonali, Rupjyoti, Bibita)
+            - Step 4 (Feedback): Clear, calm, respectful feedback
+            - Step 5 (Next Round): Continue to next round
+            ======================================================== */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.stageContent}>
+            {/* Rectangular Main Game Board */}
             <ThreeSceneView
               ref={stageRef}
-              playerCount={activePlayerCount}
-              regionId={regionId}
+              playerCount={3}
+              regionId="assam"
               isPaused={isPaused}
               onCoconutCatch={playCatchSound}
               onSequenceFinished={handleSequenceFinished}
             />
 
-            <View style={styles.calmFooter}>
-              <Text style={styles.calmFooterText}>
-                {t('games.ubilakapki.takeYourTime') || 'Take your time • No rush'}
-              </Text>
-            </View>
-          </View>
-        )}
+            {/* STEP 1: OBSERVE */}
+            {currentScreen === SCREENS.OBSERVE && (
+              <View style={styles.stepContainer}>
+                <View style={styles.observeStatusBar}>
+                  <View style={styles.observeEyeBadge}>
+                    <Ionicons name="eye-outline" size={20} color="#2D6A4F" />
+                    <Text style={styles.observeStatusText}>
+                      {t('games.ubilakapki.passingInProgress') || 'Watch closely as the coconut is passed...'}
+                    </Text>
+                  </View>
 
-        {currentScreen === SCREENS.QUESTION && (
-          <View style={styles.stageWrapper}>
-            <QuestionScreen
-              question={roundData?.question}
-              onSelectAnswer={handleSelectAnswer}
-              selectedAnswer={selectedAnswer}
-              isSubmitted={isSubmitted}
-            />
-          </View>
-        )}
+                  <TouchableOpacity
+                    style={styles.replayBtn}
+                    onPress={handleReplay}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Replay coconut movement"
+                  >
+                    <Ionicons name="refresh" size={18} color="#2D6A4F" />
+                    <Text style={styles.replayBtnText}>Replay</Text>
+                  </TouchableOpacity>
+                </View>
 
-        {currentScreen === SCREENS.RESULT && (
-          <View style={styles.stageWrapper}>
-            <ResultScreen
-              isCorrect={isCorrect}
-              selectedPlayerId={selectedAnswer}
-              correctPlayerId={roundData?.question?.correctAnswer}
-              round={roundData?.roundNumber || 1}
-              difficulty={roundData?.difficulty || 'easy'}
-              onNextRound={() => startRound()}
-              onExitGame={handleExitGame}
-            />
-          </View>
-        )}
+                <Text style={styles.calmReassuranceText}>
+                  {t('games.ubilakapki.takeYourTime') || 'Take your time • No rush'}
+                </Text>
+              </View>
+            )}
 
-        {/* Navigation / Pause Confirmation Dialog */}
+            {/* STEP 2 & 3: REMEMBER & ANSWER */}
+            {currentScreen === SCREENS.QUESTION && (
+              <View style={styles.stepContainer}>
+                <View style={styles.questionPromptBox}>
+                  <Ionicons name="help-circle" size={26} color="#78350F" />
+                  <Text style={styles.questionPromptHeading}>
+                    {getLocalizedPrompt(t)}
+                  </Text>
+                </View>
+
+                {/* Large Answer Buttons for Jonali, Rupjyoti, Bibita */}
+                <View style={styles.answerButtonsList}>
+                  {activePlayers.map((player) => {
+                    const isSelected = selectedAnswer === player.id;
+                    const playerName = getLocalizedPlayerName(player.id, t, currentLanguage);
+                    const attireDesc = getLocalizedPlayerAttire(player.id, t, currentLanguage);
+
+                    return (
+                      <TouchableOpacity
+                        key={player.id}
+                        style={[
+                          styles.answerCard,
+                          { borderColor: player.borderColor },
+                          isSelected && styles.answerCardSelected,
+                        ]}
+                        onPress={() => handleSelectAnswer(player.id)}
+                        disabled={isSubmitted}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${playerName}, ${attireDesc}`}
+                      >
+                        <View style={[styles.playerAvatarCircle, { backgroundColor: player.color }]}>
+                          <Ionicons name="person" size={24} color="#FFFFFF" />
+                        </View>
+
+                        <View style={styles.answerTextGroup}>
+                          <Text style={styles.answerPlayerName}>{playerName}</Text>
+                          {attireDesc ? (
+                            <Text style={styles.answerPlayerAttire} numberOfLines={1}>
+                              {attireDesc}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View
+                          style={[
+                            styles.playerBadgeColorPill,
+                            { backgroundColor: player.lightColor, borderColor: player.borderColor },
+                          ]}
+                        >
+                          <Text style={[styles.playerBadgeColorText, { color: player.borderColor }]}>
+                            {playerName}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.questionFooterRow}>
+                  <TouchableOpacity
+                    style={styles.replayBtn}
+                    onPress={handleReplay}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="refresh" size={16} color="#2D6A4F" />
+                    <Text style={styles.replayBtnText}>Replay movement</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.calmReassuranceText}>
+                    {t('games.ubilakapki.takeYourTime') || 'Take your time • No rush'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* STEP 4 & 5: FEEDBACK & NEXT ROUND */}
+            {currentScreen === SCREENS.RESULT && (
+              <View style={styles.stepContainer}>
+                {/* Dignified Calm Feedback Card */}
+                <View
+                  style={[
+                    styles.feedbackBanner,
+                    isCorrect ? styles.feedbackBannerCorrect : styles.feedbackBannerNeutral,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.feedbackIconCircle,
+                      isCorrect ? styles.feedbackIconCircleCorrect : styles.feedbackIconCircleNeutral,
+                    ]}
+                  >
+                    <Ionicons
+                      name={isCorrect ? 'sparkles' : 'heart'}
+                      size={32}
+                      color={isCorrect ? '#15803D' : '#D97706'}
+                    />
+                  </View>
+
+                  <View style={styles.feedbackTextWrap}>
+                    <Text
+                      style={[
+                        styles.feedbackHeading,
+                        isCorrect ? styles.feedbackHeadingCorrect : styles.feedbackHeadingNeutral,
+                      ]}
+                    >
+                      {isCorrect
+                        ? (t('games.ubilakapki.wellRemembered') || 'Well Remembered!')
+                        : (t('games.ubilakapki.goodTry') || "That's okay!")}
+                    </Text>
+
+                    <Text style={styles.feedbackBody}>
+                      {isCorrect
+                        ? `${correctHolderName} ${t('games.ubilakapki.wasHolding') || 'was holding the coconut at the end!'}`
+                        : `${correctHolderName} ${t('games.ubilakapki.wasHolding') || 'was holding the coconut.'} ${t('games.ubilakapki.tryAgainEncouragement') || "Let's try another round together!"}`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Highlighted Choice Verification */}
+                <View style={styles.answerButtonsList}>
+                  {activePlayers.map((player) => {
+                    const isTarget = player.id === correctHolderId;
+                    const isSelected = selectedAnswer === player.id;
+                    const playerName = getLocalizedPlayerName(player.id, t, currentLanguage);
+                    const attireDesc = getLocalizedPlayerAttire(player.id, t, currentLanguage);
+
+                    let cardResultStyle = styles.answerCardDisabled;
+                    if (isTarget) {
+                      cardResultStyle = styles.answerCardCorrect;
+                    } else if (isSelected && !isCorrect) {
+                      cardResultStyle = styles.answerCardIncorrect;
+                    }
+
+                    return (
+                      <View
+                        key={player.id}
+                        style={[styles.answerCard, cardResultStyle]}
+                      >
+                        <View style={[styles.playerAvatarCircle, { backgroundColor: player.color }]}>
+                          <Ionicons
+                            name={isTarget ? 'checkmark-circle' : isSelected ? 'close-circle' : 'person'}
+                            size={24}
+                            color="#FFFFFF"
+                          />
+                        </View>
+
+                        <View style={styles.answerTextGroup}>
+                          <Text style={styles.answerPlayerName}>{playerName}</Text>
+                          {attireDesc ? (
+                            <Text style={styles.answerPlayerAttire} numberOfLines={1}>
+                              {attireDesc}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View
+                          style={[
+                            styles.playerBadgeColorPill,
+                            { backgroundColor: player.lightColor, borderColor: player.borderColor },
+                          ]}
+                        >
+                          <Text style={[styles.playerBadgeColorText, { color: player.borderColor }]}>
+                            {isTarget ? 'Coconut' : playerName}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Step 5: Next Round Button */}
+                <TouchableOpacity
+                  style={styles.nextRoundBtn}
+                  onPress={startRound}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('games.ubilakapki.nextRound') || 'Next Round'}
+                >
+                  <Text style={styles.nextRoundBtnText}>
+                    {t('games.ubilakapki.nextRound') || 'Next Round'} →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* ========================================================
+            LEAVE GAME / PAUSE CONFIRMATION MODAL
+            Title: Leave this game?
+            Subtitle: Your exercise progress is safely preserved...
+            Buttons: Continue / Yes, Exit
+            ======================================================== */}
         <PauseMenu
           visible={pauseMenuVisible}
           onResume={handleResume}
           onExit={handleExitGame}
         />
 
-        {/* Clinical Caregiver Analytics Modal */}
+        {/* ========================================================
+            CLINICAL CAREGIVER ANALYTICS MODAL
+            ======================================================== */}
         <Modal
           visible={caregiverModalVisible}
           transparent
@@ -524,7 +693,7 @@ export default function UbilakapkiGame({ onExit }) {
 
                 <View style={styles.analyticsTile}>
                   <Text style={styles.tileVal}>
-                    {roundData?.roundNumber || 0}
+                    {roundNumber}
                   </Text>
                   <Text style={styles.tileLbl}>
                     {t('games.ubilakapki.caregiver.roundsCompleted') || 'Rounds'}
@@ -560,11 +729,11 @@ export default function UbilakapkiGame({ onExit }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F3F4F6',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F3F4F6',
   },
   headerBar: {
     flexDirection: 'row',
@@ -582,9 +751,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -600,8 +769,9 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: '#4B5563',
+    fontWeight: '600',
+    marginTop: 2,
   },
   headerControls: {
     flexDirection: 'row',
@@ -616,136 +786,250 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stageWrapper: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  scrollContainer: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  stageContent: {
+    width: '100%',
+    maxWidth: 520,
     alignItems: 'center',
   },
-  statusBar: {
+  stepContainer: {
+    width: '100%',
+    marginTop: 10,
+    alignItems: 'center',
+  },
+
+  /* Step 1: Observe Styles */
+  observeStatusBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 6,
-    marginBottom: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+    elevation: 1,
   },
-  roundPill: {
-    backgroundColor: '#E5E7EB',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  observeEyeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
   },
-  roundPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  statusObservationText: {
-    fontSize: 15,
+  observeStatusText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#374151',
+    flexShrink: 1,
   },
-  replaySmallBtn: {
+  replayBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 10,
     backgroundColor: '#E8F5E9',
     gap: 4,
   },
-  replaySmallText: {
+  replayBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#2D6A4F',
   },
-  calmFooter: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  calmFooterText: {
-    fontSize: 14,
+  calmReassuranceText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  introScroll: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  introCard: {
+
+  /* Step 2 & 3: Remember & Answer Styles */
+  questionPromptBox: {
     width: '100%',
-    maxWidth: 500,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    elevation: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 12,
+    gap: 10,
+  },
+  questionPromptHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+    flex: 1,
+  },
+  answerButtonsList: {
+    width: '100%',
+    gap: 10,
+    marginBottom: 10,
+  },
+  answerCard: {
+    width: '100%',
+    minHeight: 66,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 4,
   },
-  introHeroIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#FEF3C7',
+  answerCardSelected: {
+    borderColor: '#2D6A4F',
+    backgroundColor: '#F0FDF4',
+  },
+  answerCardCorrect: {
+    borderColor: '#16A34A',
+    backgroundColor: '#DCFCE7',
+  },
+  answerCardIncorrect: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEE2E2',
+    opacity: 0.8,
+  },
+  answerCardDisabled: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    opacity: 0.65,
+  },
+  playerAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 12,
   },
-  introTitle: {
-    fontSize: 24,
+  answerTextGroup: {
+    flex: 1,
+  },
+  answerPlayerName: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#1F2937',
-    textAlign: 'center',
-    marginBottom: 6,
   },
-  introTagline: {
-    fontSize: 16,
+  answerPlayerAttire: {
+    fontSize: 12,
+    fontWeight: '500',
     color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 8,
+    marginTop: 2,
   },
-  introInstructionsBox: {
-    width: '100%',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    gap: 8,
+  playerBadgeColorPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  instructionStep: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#4B5563',
-  },
-  stepBold: {
+  playerBadgeColorText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
   },
-  startExerciseBtn: {
+  questionFooterRow: {
     width: '100%',
-    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    marginTop: 6,
+  },
+
+  /* Step 4: Feedback Styles */
+  feedbackBanner: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 12,
+  },
+  feedbackBannerCorrect: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  feedbackBannerNeutral: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  feedbackIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  feedbackIconCircleCorrect: {
+    backgroundColor: '#BBF7D0',
+  },
+  feedbackIconCircleNeutral: {
+    backgroundColor: '#FDE68A',
+  },
+  feedbackTextWrap: {
+    flex: 1,
+  },
+  feedbackHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  feedbackHeadingCorrect: {
+    color: '#15803D',
+  },
+  feedbackHeadingNeutral: {
+    color: '#B45309',
+  },
+  feedbackBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#374151',
+    fontWeight: '500',
+  },
+
+  /* Step 5: Next Round Button */
+  nextRoundBtn: {
+    width: '100%',
+    minHeight: 56,
     backgroundColor: '#2D6A4F',
     borderRadius: 18,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    marginTop: 8,
     elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
-  startExerciseText: {
-    fontSize: 19,
+  nextRoundBtnText: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
+
+  /* Caregiver Analytics Modal */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -815,4 +1099,3 @@ const styles = StyleSheet.create({
     color: '#4B5563',
   },
 });
-

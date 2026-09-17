@@ -21,6 +21,7 @@ import {
   getQuestionsByDifficulty,
 } from '../modules/storyGameData';
 import { cognitiveAnalytics, defaultLocalStorage } from '../modules/performance';
+import Realistic3DStoryBook from './memorystories/components/Realistic3DStoryBook';
 
 const SCREENS = {
   STORY: 'story',
@@ -344,66 +345,16 @@ export default function MemoryStoriesGame({ onExit }) {
             </Text>
           </View>
 
-          {/* Story Card */}
-          <View
-            style={[
-              styles.storyCard,
-              { backgroundColor: colors.cardBg, borderColor: colors.cardBorder },
-            ]}
-            accessibilityRole="text"
-            accessibilityLabel={t('games.memoryStories.accessibility.storyCard')}
-          >
-            <View style={styles.storyCardHeader}>
-              <Ionicons
-                name="sunny-outline"
-                size={26}
-                color="#D97706"
-                style={{ marginRight: 10 }}
-              />
-              <Text style={[styles.storyTitle, { color: colors.text }]}>
-                {t(STORY_DATA.titleKey)}
-              </Text>
-            </View>
-
-            <Text style={[styles.storyParagraph, { color: colors.text }]}>
-              {t(STORY_DATA.paragraph1Key)}
-            </Text>
-
-            <Text style={[styles.storyParagraph, { color: colors.text, marginTop: 14 }]}>
-              {t(STORY_DATA.paragraph2Key)}
-            </Text>
-          </View>
-
-          {/* Gentle Instruction Prompt */}
-          <View
-            style={[
-              styles.promptBox,
-              { backgroundColor: isDarkMode ? '#1F2937' : '#F9FAFB' },
-            ]}
-          >
-            <Ionicons
-              name="bulb-outline"
-              size={24}
-              color={colors.primary}
-              style={{ marginRight: 10 }}
-            />
-            <Text style={[styles.promptText, { color: colors.subText }]}>
-              {t('games.memoryStories.readStoryPrompt')}
-            </Text>
-          </View>
-
-          {/* Start Questions Button */}
-          <TouchableOpacity
-            style={[styles.largePrimaryBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setScreen(SCREENS.QUESTION)}
-            accessibilityRole="button"
-            accessibilityLabel={t('games.memoryStories.startQuestions')}
-          >
-            <Text style={styles.largePrimaryBtnText}>
-              {t('games.memoryStories.startQuestions')}
-            </Text>
-            <Ionicons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 10 }} />
-          </TouchableOpacity>
+          {/* Realistic Handmade Cultural Storybook */}
+          <Realistic3DStoryBook
+            title={t(STORY_DATA.titleKey)}
+            paragraph1={t(STORY_DATA.paragraph1Key)}
+            paragraph2={t(STORY_DATA.paragraph2Key)}
+            isDarkMode={isDarkMode}
+            onStartQuestions={() => setScreen(SCREENS.QUESTION)}
+            startQuestionsLabel={t('games.memoryStories.startQuestions')}
+            promptLabel={t('games.memoryStories.readStoryPrompt')}
+          />
         </ScrollView>
       </SafeAreaView>
     );
@@ -835,43 +786,16 @@ export default function MemoryStoriesGame({ onExit }) {
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View
-              style={[
-                styles.storyCard,
-                { backgroundColor: colors.cardBg, borderColor: colors.cardBorder },
-              ]}
-            >
-              <View style={styles.storyCardHeader}>
-                <Ionicons
-                  name="book"
-                  size={26}
-                  color={colors.primary}
-                  style={{ marginRight: 10 }}
-                />
-                <Text style={[styles.storyTitle, { color: colors.text }]}>
-                  {t(STORY_DATA.titleKey)}
-                </Text>
-              </View>
-
-              <Text style={[styles.storyParagraph, { color: colors.text }]}>
-                {t(STORY_DATA.paragraph1Key)}
-              </Text>
-
-              <Text style={[styles.storyParagraph, { color: colors.text, marginTop: 14 }]}>
-                {t(STORY_DATA.paragraph2Key)}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.largePrimaryBtn, { backgroundColor: colors.primary, marginTop: 24 }]}
-              onPress={() => setShowStoryModal(false)}
-              accessibilityRole="button"
-              accessibilityLabel={t('games.memoryStories.accessibility.closeStoryBtn')}
-            >
-              <Text style={styles.largePrimaryBtnText}>
-                {t('games.memoryStories.closeStory')}
-              </Text>
-            </TouchableOpacity>
+            <Realistic3DStoryBook
+              title={t(STORY_DATA.titleKey)}
+              paragraph1={t(STORY_DATA.paragraph1Key)}
+              paragraph2={t(STORY_DATA.paragraph2Key)}
+              isDarkMode={isDarkMode}
+              initialOpen={true}
+              onStartQuestions={() => setShowStoryModal(false)}
+              startQuestionsLabel={t('games.memoryStories.closeStory', 'Back to Question')}
+              promptLabel=""
+            />
           </ScrollView>
         </SafeAreaView>
       </Modal>

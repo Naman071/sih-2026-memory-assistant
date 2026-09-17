@@ -442,10 +442,7 @@ const WebThreeSceneView = forwardRef(function WebThreeSceneView(
 });
 
 export const ThreeSceneView = forwardRef(function ThreeSceneView(props, ref) {
-  if (Platform.OS !== 'web') {
-    return <NativeStageView ref={ref} {...props} />;
-  }
-  return <WebThreeSceneView ref={ref} {...props} />;
+  return <NativeStageView ref={ref} {...props} />;
 });
 
 const styles = StyleSheet.create({

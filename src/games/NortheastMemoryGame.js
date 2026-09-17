@@ -409,7 +409,7 @@ export default function NortheastMemoryGame({
         is_correct: isCorrect,
         response_time: responseTimeSec,
         difficulty: difficulty,
-        game_name: 'North East Memory',
+        game_name: 'Sinaki Sthan',
       });
     } catch (recordErr) {
       errorDev('ERROR in recordPerformance:', recordErr);
@@ -471,7 +471,7 @@ export default function NortheastMemoryGame({
         try {
           cognitiveAnalytics.recordGameSession({
             gameId: 'northeast_memory',
-            gameName: 'North East Scenic Memory',
+            gameName: 'Sinaki Sthan',
             domain: 'episodic_recall',
             difficulty: difficulty,
             durationSec: actualDurationSec,
@@ -591,7 +591,7 @@ export default function NortheastMemoryGame({
 
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, marginTop: 12 }]}>
             <Text style={[styles.largeTitle, { color: theme.text }]}>
-              {t('games.northeastGame.title') || '🏞️ North East Memory'}
+              {t('games.northeastGame.title') || '🏞️ Sinaki Sthan'}
             </Text>
             <Text style={[styles.bodyText, { color: theme.subText, marginTop: 12 }]}>
               {t('games.northeastGame.desc') || 'Look at the photo carefully. Then answer questions about what you saw.'}

@@ -21,10 +21,10 @@ export const PLAYER_NAME_MAP = {
     hi: 'रूपज्योति',
   },
   C: {
-    en: 'Bobita',
-    as: 'ববিতা',
-    bn: 'ববিতা',
-    hi: 'बबीता',
+    en: 'Bibita',
+    as: 'বিবিটা',
+    bn: 'বিবিটা',
+    hi: 'बिबीता',
   },
   D: {
     en: 'Debajit',

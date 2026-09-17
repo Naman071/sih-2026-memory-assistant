@@ -278,6 +278,12 @@ export const NativeStageView = forwardRef(function NativeStageView(
         const pos = playerCoordinates[first] || { x: 0, y: -ringRadius };
         coconutPosAnim.setValue({ x: pos.x, y: pos.y });
       },
+      hideCoconut: () => {
+        setCoconutVisible(false);
+      },
+      showCoconut: () => {
+        setCoconutVisible(true);
+      },
     }),
     [playerCoordinates, activePlayers, ringRadius, coconutPosAnim, executeNextPass]
   );
