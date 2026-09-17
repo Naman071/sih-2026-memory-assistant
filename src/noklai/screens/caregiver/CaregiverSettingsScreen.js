@@ -23,7 +23,9 @@ export default function CaregiverSettingsScreen() {
   const {
     role,
     caregiverName,
+    caregiverAvatar,
     activePatientName,
+    patientAvatar,
     caregiverPhone,
     patientPhone,
     selectRole,
@@ -109,7 +111,7 @@ export default function CaregiverSettingsScreen() {
           ]}
         >
           <View style={[styles.profileAvatarCircle, { backgroundColor: isPatient ? '#FEF3C7' : '#EDE9FE' }]}>
-            <Text style={{ fontSize: 32 }}>{isPatient ? '👵' : '👩'}</Text>
+            <Text style={{ fontSize: 32 }}>{isPatient ? patientAvatar : caregiverAvatar}</Text>
           </View>
           <View style={styles.profileDetailsCol}>
             <Text

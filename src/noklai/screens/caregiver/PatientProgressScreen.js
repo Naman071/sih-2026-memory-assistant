@@ -22,6 +22,7 @@ export default function PatientProgressScreen({ onBack }) {
   const { isDarkMode } = useTheme();
   const {
     activePatientName,
+    patientAvatar,
     setActiveCaregiverSubScreen,
     setAiModalVisible,
     computedStats,
@@ -53,7 +54,7 @@ export default function PatientProgressScreen({ onBack }) {
         {/* Patient Profile Row */}
         <View style={styles.patientProfileRow}>
           <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-            <Text style={{ fontSize: 30 }}>👵</Text>
+            <Text style={{ fontSize: 30 }}>{patientAvatar}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text

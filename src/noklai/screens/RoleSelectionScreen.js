@@ -7,7 +7,14 @@ import { useNoklai } from '../context/NoklaiContext';
 
 export default function RoleSelectionScreen() {
   const { isDarkMode } = useTheme();
-  const { selectRole, setCurrentStep, activePatientName, caregiverName } = useNoklai();
+  const {
+    selectRole,
+    setCurrentStep,
+    activePatientName,
+    patientAvatar,
+    caregiverName,
+    caregiverAvatar,
+  } = useNoklai();
 
   return (
     <SafeAreaView
@@ -72,7 +79,7 @@ export default function RoleSelectionScreen() {
             ]}
           >
             <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-              <Text style={styles.avatarEmoji}>👵</Text>
+              <Text style={styles.avatarEmoji}>{patientAvatar}</Text>
             </View>
 
             <View style={styles.cardContent}>
@@ -116,7 +123,7 @@ export default function RoleSelectionScreen() {
             ]}
           >
             <View style={[styles.avatarCircle, { backgroundColor: '#EDE9FE' }]}>
-              <Text style={styles.avatarEmoji}>👩</Text>
+              <Text style={styles.avatarEmoji}>{caregiverAvatar}</Text>
             </View>
 
             <View style={styles.cardContent}>

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../theme/noklaiTheme';
@@ -22,16 +23,20 @@ export default function NoklaiLoginScreen() {
   const {
     caregiverName: initialCaregiverName,
     caregiverPhone: initialCaregiverPhone,
+    caregiverGender: initialCaregiverGender,
     activePatientName: initialPatientName,
     patientPhone: initialPatientPhone,
+    patientGender: initialPatientGender,
     saveCredentials,
     setCurrentStep,
   } = useNoklai();
 
   const [caregiverName, setCaregiverName] = useState(initialCaregiverName || '');
   const [caregiverPhone, setCaregiverPhone] = useState(initialCaregiverPhone || '');
+  const [caregiverGender, setCaregiverGender] = useState(initialCaregiverGender || 'female');
   const [patientName, setPatientName] = useState(initialPatientName || '');
   const [patientPhone, setPatientPhone] = useState(initialPatientPhone || '');
+  const [patientGender, setPatientGender] = useState(initialPatientGender || 'female');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleContinue = async () => {
@@ -48,8 +53,10 @@ export default function NoklaiLoginScreen() {
     await saveCredentials({
       caregiverName: caregiverName.trim(),
       caregiverPhone: caregiverPhone.trim(),
+      caregiverGender,
       patientName: patientName.trim(),
       patientPhone: patientPhone.trim(),
+      patientGender,
     });
 
     // Move directly to role selection - NO OTP
@@ -110,7 +117,7 @@ export default function NoklaiLoginScreen() {
           <NoklaiCard style={styles.sectionCard}>
             <View style={styles.cardHeaderRow}>
               <View style={[styles.sectionIconBadge, { backgroundColor: '#EDE9FE' }]}>
-                <Ionicons name="person" size={20} color="#5B409E" />
+                <Text style={{ fontSize: 22 }}>{caregiverGender === 'male' ? '👨' : '👩'}</Text>
               </View>
               <View>
                 <Text
@@ -164,13 +171,80 @@ export default function NoklaiLoginScreen() {
                 },
               ]}
             />
+
+            <Text style={[styles.inputLabel, { color: isDarkMode ? '#9CA3AF' : '#475569' }]}>
+              Caregiver Profile Picture
+            </Text>
+            <View style={styles.genderRow}>
+              <TouchableOpacity
+                onPress={() => setCaregiverGender('male')}
+                activeOpacity={0.8}
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor: caregiverGender === 'male'
+                      ? (isDarkMode ? '#2E2248' : '#F3EFFE')
+                      : (isDarkMode ? '#232A38' : '#F1F5F9'),
+                    borderColor: caregiverGender === 'male'
+                      ? noklaiTheme.colors.primary
+                      : (isDarkMode ? '#374151' : '#E2E8F0'),
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 20, marginRight: 6 }}>👨</Text>
+                <Text
+                  style={[
+                    styles.genderText,
+                    {
+                      color: caregiverGender === 'male'
+                        ? noklaiTheme.colors.primary
+                        : (isDarkMode ? '#CBD5E1' : '#475569'),
+                      fontWeight: caregiverGender === 'male' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Male
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setCaregiverGender('female')}
+                activeOpacity={0.8}
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor: caregiverGender === 'female'
+                      ? (isDarkMode ? '#2E2248' : '#F3EFFE')
+                      : (isDarkMode ? '#232A38' : '#F1F5F9'),
+                    borderColor: caregiverGender === 'female'
+                      ? noklaiTheme.colors.primary
+                      : (isDarkMode ? '#374151' : '#E2E8F0'),
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 20, marginRight: 6 }}>👩</Text>
+                <Text
+                  style={[
+                    styles.genderText,
+                    {
+                      color: caregiverGender === 'female'
+                        ? noklaiTheme.colors.primary
+                        : (isDarkMode ? '#CBD5E1' : '#475569'),
+                      fontWeight: caregiverGender === 'female' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Female
+                </Text>
+              </TouchableOpacity>
+            </View>
           </NoklaiCard>
 
           {/* Card 2: Patient Details */}
           <NoklaiCard style={styles.sectionCard}>
             <View style={styles.cardHeaderRow}>
               <View style={[styles.sectionIconBadge, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={{ fontSize: 20 }}>👵</Text>
+                <Text style={{ fontSize: 22 }}>{patientGender === 'male' ? '👴' : '👵'}</Text>
               </View>
               <View>
                 <Text
@@ -189,7 +263,7 @@ export default function NoklaiLoginScreen() {
               Patient Name *
             </Text>
             <TextInput
-              placeholder="e.g. Chandni Devi (Aaji)"
+              placeholder="e.g. Ramesh Kumar or Aaji"
               placeholderTextColor="#9CA3AF"
               value={patientName}
               onChangeText={(text) => {
@@ -224,6 +298,73 @@ export default function NoklaiLoginScreen() {
                 },
               ]}
             />
+
+            <Text style={[styles.inputLabel, { color: isDarkMode ? '#9CA3AF' : '#475569' }]}>
+              Patient Profile Picture
+            </Text>
+            <View style={styles.genderRow}>
+              <TouchableOpacity
+                onPress={() => setPatientGender('male')}
+                activeOpacity={0.8}
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor: patientGender === 'male'
+                      ? (isDarkMode ? '#1B3526' : '#DCFCE7')
+                      : (isDarkMode ? '#232A38' : '#F1F5F9'),
+                    borderColor: patientGender === 'male'
+                      ? '#16A34A'
+                      : (isDarkMode ? '#374151' : '#E2E8F0'),
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 20, marginRight: 6 }}>👴</Text>
+                <Text
+                  style={[
+                    styles.genderText,
+                    {
+                      color: patientGender === 'male'
+                        ? '#16A34A'
+                        : (isDarkMode ? '#CBD5E1' : '#475569'),
+                      fontWeight: patientGender === 'male' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Male (Grandfather)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setPatientGender('female')}
+                activeOpacity={0.8}
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor: patientGender === 'female'
+                      ? (isDarkMode ? '#1B3526' : '#DCFCE7')
+                      : (isDarkMode ? '#232A38' : '#F1F5F9'),
+                    borderColor: patientGender === 'female'
+                      ? '#16A34A'
+                      : (isDarkMode ? '#374151' : '#E2E8F0'),
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 20, marginRight: 6 }}>👵</Text>
+                <Text
+                  style={[
+                    styles.genderText,
+                    {
+                      color: patientGender === 'female'
+                        ? '#16A34A'
+                        : (isDarkMode ? '#CBD5E1' : '#475569'),
+                      fontWeight: patientGender === 'female' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Female (Grandmother)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </NoklaiCard>
 
           {/* Submit Action */}
@@ -335,6 +476,24 @@ const styles = StyleSheet.create({
   },
   actionContainer: {
     marginTop: 10,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  genderOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: noklaiTheme.radii.lg,
+    borderWidth: 1.5,
+  },
+  genderText: {
+    fontSize: 13,
   },
 });
 

@@ -20,7 +20,9 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
   const { isDarkMode } = useTheme();
   const {
     caregiverName,
+    caregiverAvatar,
     activePatientName,
+    patientAvatar,
     setAiModalVisible,
     setActiveCaregiverSubScreen,
     computedStats,
@@ -92,7 +94,7 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
             accessibilityLabel="View linked loved ones"
           >
             <View style={styles.profileAvatarCircle}>
-              <Text style={{ fontSize: 22 }}>👩</Text>
+              <Text style={{ fontSize: 22 }}>{caregiverAvatar}</Text>
             </View>
             <View style={styles.profileBadgeDot} />
           </TouchableOpacity>
@@ -114,7 +116,7 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
           <View style={styles.patientCardTop}>
             <View style={styles.patientInfoRow}>
               <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={{ fontSize: 26 }}>👵</Text>
+                <Text style={{ fontSize: 26 }}>{patientAvatar}</Text>
               </View>
               <View style={styles.patientNameCol}>
                 <Text

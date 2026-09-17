@@ -24,7 +24,9 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
   const { isDarkMode } = useTheme();
   const {
     activePatientName,
+    patientAvatar,
     caregiverName,
+    caregiverAvatar,
     reminders,
     loadingReminders,
     addReminder,
@@ -93,7 +95,7 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
           </View>
 
           <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-            <Text style={{ fontSize: 36 }}>👵</Text>
+            <Text style={{ fontSize: 36 }}>{patientAvatar}</Text>
           </View>
         </View>
 

@@ -15,8 +15,10 @@ const STORAGE_KEYS = {
   LOCAL_REMINDERS_PREFIX: '@noklai_local_reminders_',
   CAREGIVER_NAME: '@noklai_caregiver_name',
   CAREGIVER_PHONE: '@noklai_caregiver_phone',
+  CAREGIVER_GENDER: '@noklai_caregiver_gender',
   PATIENT_NAME: '@noklai_patient_name',
   PATIENT_PHONE: '@noklai_patient_phone',
+  PATIENT_GENDER: '@noklai_patient_gender',
   SETUP_COMPLETED: '@noklai_setup_completed',
 };
 
@@ -39,10 +41,15 @@ export function NoklaiProvider({ children }) {
   const [role, setRole] = useState('caregiver');            // 'caregiver' | 'patient'
   const [caregiverName, setCaregiverName] = useState(existingCaregiverName || 'Caregiver');
   const [caregiverPhone, setCaregiverPhone] = useState(existingCaregiverPhone || '');
+  const [caregiverGender, setCaregiverGender] = useState('female'); // 'female' | 'male'
   const [activePatientId, setActivePatientId] = useState(existingPatientId || 'P001');
   const [activePatientName, setActivePatientName] = useState(existingPatientName || 'Patient');
   const [patientPhone, setPatientPhone] = useState(existingPatientPhone || '');
+  const [patientGender, setPatientGender] = useState('female');     // 'female' | 'male'
   const [hasCompletedSetup, setHasCompletedSetup] = useState(false);
+
+  const caregiverAvatar = caregiverGender === 'male' ? '👨' : '👩';
+  const patientAvatar = patientGender === 'male' ? '👴' : '👵';
 
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [activeCaregiverSubScreen, setActiveCaregiverSubScreen] = useState(null);
@@ -56,7 +63,7 @@ export function NoklaiProvider({ children }) {
       connectedSince: 'Mar 2025',
       activeToday: true,
       age: existingPatientAge || '72',
-      gender: 'Female',
+      gender: 'female',
       relation: existingRelationship || 'Loved One',
       status: 'Active today',
       avatarText: '👵',
@@ -66,18 +73,23 @@ export function NoklaiProvider({ children }) {
   // Active Patient Object
   const activePatient = useMemo(() => {
     const found = patients.find((p) => p.id === activePatientId);
-    if (found) return found;
+    if (found) {
+      return {
+        ...found,
+        avatarText: found.gender === 'male' ? '👴' : (found.avatarText || patientAvatar),
+      };
+    }
     return {
       id: activePatientId || 'P001',
       name: activePatientName || 'Patient',
       connectedSince: 'Mar 2025',
       activeToday: true,
       age: existingPatientAge || '72',
-      relation: existingRelationship || 'Grandmother',
+      relation: existingRelationship || 'Loved One',
       status: 'Active today',
-      avatarText: '👵',
+      avatarText: patientAvatar,
     };
-  }, [patients, activePatientId, activePatientName, existingPatientAge, existingRelationship]);
+  }, [patients, activePatientId, activePatientName, existingPatientAge, existingRelationship, patientAvatar]);
 
   // Reminders & Analytics
   const [reminders, setReminders] = useState([]);
@@ -95,23 +107,34 @@ export function NoklaiProvider({ children }) {
           setupCompleted,
           savedCaregiverName,
           savedCaregiverPhone,
+          savedCaregiverGender,
           savedPatientName,
           savedPatientPhone,
+          savedPatientGender,
         ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CURRENT_ROLE),
           AsyncStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED),
           AsyncStorage.getItem(STORAGE_KEYS.CAREGIVER_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.CAREGIVER_PHONE),
+          AsyncStorage.getItem(STORAGE_KEYS.CAREGIVER_GENDER),
           AsyncStorage.getItem(STORAGE_KEYS.PATIENT_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.PATIENT_PHONE),
+          AsyncStorage.getItem(STORAGE_KEYS.PATIENT_GENDER),
         ]);
 
         if (savedCaregiverName) setCaregiverName(savedCaregiverName);
         if (savedCaregiverPhone) setCaregiverPhone(savedCaregiverPhone);
+        if (savedCaregiverGender) setCaregiverGender(savedCaregiverGender);
+        if (savedPatientGender) setPatientGender(savedPatientGender);
         if (savedPatientName) {
           setActivePatientName(savedPatientName);
           setPatients((prev) =>
-            prev.map((p) => (p.id === activePatientId ? { ...p, name: savedPatientName } : p))
+            prev.map((p) => (p.id === activePatientId ? {
+              ...p,
+              name: savedPatientName,
+              gender: savedPatientGender || p.gender,
+              avatarText: (savedPatientGender || p.gender) === 'male' ? '👴' : '👵',
+            } : p))
           );
         }
         if (savedPatientPhone) setPatientPhone(savedPatientPhone);
@@ -134,18 +157,30 @@ export function NoklaiProvider({ children }) {
   const saveCredentials = useCallback(async ({
     caregiverName: newCaregiverName,
     caregiverPhone: newCaregiverPhone,
+    caregiverGender: newCaregiverGender,
     patientName: newPatientName,
     patientPhone: newPatientPhone,
+    patientGender: newPatientGender,
   }) => {
     setCaregiverName(newCaregiverName);
     setCaregiverPhone(newCaregiverPhone || '');
+    if (newCaregiverGender) setCaregiverGender(newCaregiverGender);
     setActivePatientName(newPatientName);
     setPatientPhone(newPatientPhone || '');
+    if (newPatientGender) setPatientGender(newPatientGender);
     setHasCompletedSetup(true);
+
+    const patGender = newPatientGender || patientGender;
+    const patAvatar = patGender === 'male' ? '👴' : '👵';
 
     // Update patients list
     setPatients((prev) =>
-      prev.map((p) => (p.id === activePatientId ? { ...p, name: newPatientName } : p))
+      prev.map((p) => (p.id === activePatientId ? {
+        ...p,
+        name: newPatientName,
+        gender: patGender,
+        avatarText: patAvatar,
+      } : p))
     );
 
     // Persist to AsyncStorage
@@ -153,8 +188,10 @@ export function NoklaiProvider({ children }) {
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.CAREGIVER_NAME, newCaregiverName],
         [STORAGE_KEYS.CAREGIVER_PHONE, newCaregiverPhone || ''],
+        [STORAGE_KEYS.CAREGIVER_GENDER, newCaregiverGender || caregiverGender],
         [STORAGE_KEYS.PATIENT_NAME, newPatientName],
         [STORAGE_KEYS.PATIENT_PHONE, newPatientPhone || ''],
+        [STORAGE_KEYS.PATIENT_GENDER, newPatientGender || patientGender],
         [STORAGE_KEYS.SETUP_COMPLETED, 'true'],
       ]);
     } catch (e) {
@@ -330,16 +367,17 @@ export function NoklaiProvider({ children }) {
   }, [activePatientId]);
 
   const addPatient = useCallback((newPatient) => {
+    const isMale = (newPatient.gender || '').toLowerCase() === 'male';
     const formatted = {
       id: `P_${Date.now()}`,
       name: newPatient.name || 'Loved One',
       connectedSince: 'Today',
       activeToday: true,
       age: newPatient.age || '70',
-      gender: newPatient.gender || 'Other',
+      gender: isMale ? 'male' : 'female',
       relation: newPatient.relation || 'Relative',
       status: 'Connected today',
-      avatarText: '👵',
+      avatarText: isMale ? '👴' : '👵',
     };
     setPatients((prev) => [...prev, formatted]);
     setActivePatientId(formatted.id);
@@ -472,12 +510,18 @@ export function NoklaiProvider({ children }) {
         setCaregiverName,
         caregiverPhone,
         setCaregiverPhone,
+        caregiverGender,
+        setCaregiverGender,
+        caregiverAvatar,
         activePatientId,
         setActivePatientId,
         activePatientName,
         setActivePatientName,
         patientPhone,
         setPatientPhone,
+        patientGender,
+        setPatientGender,
+        patientAvatar,
         saveCredentials,
         patients,
         activePatient,

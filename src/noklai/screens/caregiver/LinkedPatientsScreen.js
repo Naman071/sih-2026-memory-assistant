@@ -24,6 +24,7 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState('');
   const [newAge, setNewAge] = useState('');
+  const [newGender, setNewGender] = useState('female');
   const [newRelation, setNewRelation] = useState('Grandparent');
 
   const handleCreatePatient = () => {
@@ -31,10 +32,12 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
     addPatient({
       name: newName.trim(),
       age: newAge.trim() || '70',
+      gender: newGender,
       relation: newRelation,
     });
     setNewName('');
     setNewAge('');
+    setNewGender('female');
     setModalVisible(false);
   };
 
@@ -108,7 +111,7 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
                 ]}
               >
                 <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
-                  <Text style={{ fontSize: 26 }}>👵</Text>
+                  <Text style={{ fontSize: 26 }}>{patient.avatarText || (patient.gender === 'male' ? '👴' : '👵')}</Text>
                 </View>
 
                 <View style={styles.patientInfoCol}>
@@ -221,6 +224,44 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
                   },
                 ]}
               />
+
+              <Text style={styles.inputLabel}>Profile Picture</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                <TouchableOpacity
+                  onPress={() => setNewGender('male')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 8,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: newGender === 'male' ? '#16A34A' : '#E5E7EB',
+                    backgroundColor: newGender === 'male' ? '#DCFCE7' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 6 }}>👴</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 12, color: newGender === 'male' ? '#16A34A' : '#4B5563' }}>Male</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setNewGender('female')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 8,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: newGender === 'female' ? '#16A34A' : '#E5E7EB',
+                    backgroundColor: newGender === 'female' ? '#DCFCE7' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 6 }}>👵</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 12, color: newGender === 'female' ? '#16A34A' : '#4B5563' }}>Female</Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.modalButtonsRow}>
                 <NoklaiButton
