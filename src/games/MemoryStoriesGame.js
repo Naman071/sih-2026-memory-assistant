@@ -159,7 +159,7 @@ export default function MemoryStoriesGame({ onExit }) {
 
       // 2. Record in unified caregiver cognitive analytics service
       try {
-        cognitiveAnalytics.recordGameSession({
+        await cognitiveAnalytics.recordGameSession({
           gameId: 'memory_stories',
           gameName: 'Xuworoni Kotha',
           domain: 'episodic_recall',
@@ -176,8 +176,6 @@ export default function MemoryStoriesGame({ onExit }) {
             roundNumber: 1,
             eligibleForCVI: isEligible,
           },
-        }).catch((err) => {
-          console.error('[MemoryStoriesGame] Error recording session:', err);
         });
       } catch (e) {
         console.error('[MemoryStoriesGame] Exception recording session:', e);

@@ -212,3 +212,7 @@ Where:
 ### Clinical & Algorithmic Enhancements
 1. **Response Time Degradation Index:** Incorporate response latency drift (slowing reaction speeds over months) as an optional diagnostic indicator in the Caregiver Insights report.
 2. **Time-Decay Exponential Weighting:** Introduce a recency weighting factor (e.g., half-life of 30 days) so performance from six months ago does not obscure recent cognitive changes.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a836ef2 (cviup)
