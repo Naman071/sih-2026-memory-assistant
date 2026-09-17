@@ -115,13 +115,6 @@ export default function AppLaunchScreen() {
             >
               for brighter tomorrows
             </Text>
-
-            {/* Pagination dots */}
-            <View style={styles.dotsRow}>
-              <View style={[styles.dot, styles.dotActive]} />
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-            </View>
           </View>
         </View>
 
@@ -298,21 +291,7 @@ const styles = StyleSheet.create({
   caringSubline: {
     fontSize: 14,
     marginTop: 2,
-    marginBottom: 12,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#CBD5E1',
-  },
-  dotActive: {
-    width: 22,
-    backgroundColor: noklaiTheme.colors.primary,
+    marginBottom: 4,
   },
   mottoRow: {
     flexDirection: 'row',
