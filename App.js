@@ -24,6 +24,10 @@ import { PatientProvider, usePatient } from './src/context/PatientContext';
 import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
 import ThemeToggle from './src/components/ThemeToggle';
 import LanguageSelector from './src/components/LanguageSelector';
+import NoklaiApp from './src/noklai/NoklaiApp';
+
+// Set to false to revert instantly to legacy UI, or true to use the new Noklai UI
+const USE_NOKLAI_UI = true;
 
 const Tab = createBottomTabNavigator();
 
@@ -174,7 +178,7 @@ export default function App() {
     <ThemeProvider>
       <LanguageProvider>
         <PatientProvider>
-          <RootApp />
+          {USE_NOKLAI_UI ? <NoklaiApp /> : <RootApp />}
         </PatientProvider>
       </LanguageProvider>
     </ThemeProvider>
