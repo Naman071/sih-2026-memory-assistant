@@ -297,7 +297,7 @@ export class PerformanceTracker {
 
     // Record in unified caregiver cognitive analytics service
     try {
-      cognitiveAnalytics.recordGameSession({
+      await cognitiveAnalytics.recordGameSession({
         gameId: this.gameType,
         domain:
           this.gameType === 'ubilakapki'
@@ -323,11 +323,9 @@ export class PerformanceTracker {
           roundNumber: completedRound.roundNumber,
           eligibleForCVI: isEligibleForCVI,
         },
-      }).catch((err) => {
-        console.error('[PerformanceTracker] Failed to record game session in cognitiveAnalytics:', err);
       });
     } catch (e) {
-      console.error('[PerformanceTracker] Exception recording session:', e);
+      console.error('[PerformanceTracker] Exception recording session in cognitiveAnalytics:', e);
     }
 
     this.activeRound = null;

@@ -13,6 +13,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabaseClient.js';
 import { saveGameResult } from '../database.js';
 
+const getStorageInstance = () => {
+  if (globalThis.AsyncStorage && typeof globalThis.AsyncStorage.getItem === 'function') {
+    return globalThis.AsyncStorage;
+  }
+  if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
+    return AsyncStorage;
+  }
+  if (AsyncStorage?.default && typeof AsyncStorage.default.getItem === 'function') {
+    return AsyncStorage.default;
+  }
+  return null;
+};
+
 const STORAGE_KEYS = {
   QUEUE: '@memory_assistant_offline_queue',
   PROFILE_PREFIX: '@difficulty_profile_',
@@ -43,9 +56,12 @@ export class SupabasePerformanceService {
    */
   async getProfile(gameType, playerId) {
     try {
-      const raw = await AsyncStorage.getItem(this.getProfileKey(gameType, playerId));
-      if (raw) {
-        return JSON.parse(raw);
+      const storage = getStorageInstance();
+      if (storage) {
+        const raw = await storage.getItem(this.getProfileKey(gameType, playerId));
+        if (raw) {
+          return JSON.parse(raw);
+        }
       }
     } catch (err) {
       console.warn('Error reading performance profile from AsyncStorage:', err);
@@ -68,7 +84,10 @@ export class SupabasePerformanceService {
   async saveProfile(profile) {
     const key = this.getProfileKey(profile.gameType, profile.playerId);
     try {
-      await AsyncStorage.setItem(key, JSON.stringify(profile));
+      const storage = getStorageInstance();
+      if (storage) {
+        await storage.setItem(key, JSON.stringify(profile));
+      }
     } catch (err) {
       console.warn('Error writing performance profile to AsyncStorage:', err);
     }
@@ -106,10 +125,13 @@ export class SupabasePerformanceService {
    */
   async getRoundHistory(gameType, playerId, limit = 20) {
     try {
-      const raw = await AsyncStorage.getItem(this.getHistoryKey(gameType, playerId));
-      if (raw) {
-        const list = JSON.parse(raw);
-        return Array.isArray(list) ? list.slice(-limit) : [];
+      const storage = getStorageInstance();
+      if (storage) {
+        const raw = await storage.getItem(this.getHistoryKey(gameType, playerId));
+        if (raw) {
+          const list = JSON.parse(raw);
+          return Array.isArray(list) ? list.slice(-limit) : [];
+        }
       }
     } catch (err) {
       console.warn('Error reading round history from AsyncStorage:', err);
@@ -124,9 +146,12 @@ export class SupabasePerformanceService {
     // 1. Update local round history immediately
     const historyKey = this.getHistoryKey(session.gameType, session.playerId);
     try {
-      const existing = await this.getRoundHistory(session.gameType, session.playerId, 50);
-      const updated = [...existing, roundData].slice(-50);
-      await AsyncStorage.setItem(historyKey, JSON.stringify(updated));
+      const storage = getStorageInstance();
+      if (storage) {
+        const existing = await this.getRoundHistory(session.gameType, session.playerId, 50);
+        const updated = [...existing, roundData].slice(-50);
+        await storage.setItem(historyKey, JSON.stringify(updated));
+      }
     } catch (storageErr) {
       console.warn('Error updating local round history:', storageErr);
     }
@@ -208,12 +233,15 @@ export class SupabasePerformanceService {
    */
   async enqueueOfflineItem(item) {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.QUEUE);
-      const queue = raw ? JSON.parse(raw) : [];
-      queue.push({ ...item, queuedAt: new Date().toISOString() });
-      // Keep queue bounded
-      const trimmed = queue.slice(-100);
-      await AsyncStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(trimmed));
+      const storage = getStorageInstance();
+      if (storage) {
+        const raw = await storage.getItem(STORAGE_KEYS.QUEUE);
+        const queue = raw ? JSON.parse(raw) : [];
+        queue.push({ ...item, queuedAt: new Date().toISOString() });
+        // Keep queue bounded
+        const trimmed = queue.slice(-100);
+        await storage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(trimmed));
+      }
     } catch (err) {
       console.warn('Error enqueuing offline performance item:', err);
     }
@@ -227,7 +255,12 @@ export class SupabasePerformanceService {
     this.isSyncing = true;
 
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.QUEUE);
+      const storage = getStorageInstance();
+      if (!storage) {
+        this.isSyncing = false;
+        return;
+      }
+      const raw = await storage.getItem(STORAGE_KEYS.QUEUE);
       if (!raw) {
         this.isSyncing = false;
         return;
@@ -263,7 +296,7 @@ export class SupabasePerformanceService {
         }
       }
 
-      await AsyncStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(remaining));
+      await storage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(remaining));
     } catch (err) {
       console.warn('Error flushing offline queue:', err);
     } finally {

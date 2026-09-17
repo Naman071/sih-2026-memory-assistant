@@ -416,7 +416,7 @@ export default function NortheastMemoryGame({
     }
 
     // Show feedback for 1.5s, then advance
-    feedbackTimeoutRef.current = setTimeout(() => {
+    feedbackTimeoutRef.current = setTimeout(async () => {
       isSubmittingRef.current = false;
       const nextIndex = currentQuestionIndex + 1;
 
@@ -439,8 +439,8 @@ export default function NortheastMemoryGame({
 
         // 1. Save to centralized LocalPerformanceStorage
         if (activePatientId) {
-          defaultLocalStorage
-            .saveRoundResult({
+          try {
+            await defaultLocalStorage.saveRoundResult({
               session: {
                 id: sessionId,
                 playerId: activePatientId,
@@ -461,15 +461,15 @@ export default function NortheastMemoryGame({
                 completedAt: new Date().toISOString(),
                 eligibleForCVI: isEligible,
               },
-            })
-            .catch((err) => {
-              console.warn('[NortheastMemoryGame] LocalPerformanceStorage save notice:', err?.message);
             });
+          } catch (err) {
+            console.warn('[NortheastMemoryGame] LocalPerformanceStorage save notice:', err?.message);
+          }
         }
 
         // 2. Record in unified caregiver cognitive analytics service
         try {
-          cognitiveAnalytics.recordGameSession({
+          await cognitiveAnalytics.recordGameSession({
             gameId: 'northeast_memory',
             gameName: 'Sinaki Sthan',
             domain: 'episodic_recall',
@@ -486,8 +486,6 @@ export default function NortheastMemoryGame({
               roundNumber: scenesCompleted + 1,
               eligibleForCVI: isEligible,
             },
-          }).catch((err) => {
-            console.error('[NortheastMemoryGame] Error recording session:', err);
           });
         } catch (e) {
           console.error('[NortheastMemoryGame] Exception recording session:', e);
