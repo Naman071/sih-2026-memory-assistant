@@ -55,15 +55,65 @@ export default function ActivityHistoryScreen({ onBack, embedded = false }) {
               </View>
 
               <View style={styles.activityInfoCol}>
-                <Text
-                  style={[
-                    styles.activityTitle,
-                    { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
-                  ]}
-                >
-                  Played {item.game}
-                </Text>
-                <Text style={styles.activityTime}>{item.time}</Text>
+                <View style={styles.cardHeaderRow}>
+                  <Text
+                    style={[
+                      styles.activityTitle,
+                      { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary, flex: 1 },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Played {item.game}
+                  </Text>
+                  {item.status && (
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor:
+                            item.status === 'Completed'
+                              ? isDarkMode ? '#064E3B' : '#DCFCE7'
+                              : isDarkMode ? '#451A03' : '#FEF3C7',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: item.status === 'Completed' ? '#059669' : '#D97706' },
+                        ]}
+                      >
+                        {item.status}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.activityTime}>{item.fullDateTime || item.time}</Text>
+
+                <View style={styles.metaRow}>
+                  {item.accuracy && (
+                    <View style={[styles.metaBadge, { backgroundColor: isDarkMode ? '#064E3B' : '#E8F5E9' }]}>
+                      <Text style={[styles.metaBadgeText, { color: '#059669' }]}>
+                        Accuracy: {item.accuracy}
+                      </Text>
+                    </View>
+                  )}
+                  {item.durationFormatted && (
+                    <View style={[styles.metaBadge, { backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9' }]}>
+                      <Text style={[styles.metaBadgeText, { color: isDarkMode ? '#94A3B8' : '#64748B' }]}>
+                        Duration: {item.durationFormatted}
+                      </Text>
+                    </View>
+                  )}
+                  {item.difficulty && (
+                    <View style={[styles.metaBadge, { backgroundColor: isDarkMode ? '#282D3C' : '#F3F4F6' }]}>
+                      <Text style={[styles.metaBadgeText, { color: isDarkMode ? '#CBD5E1' : '#475569' }]}>
+                        {item.difficulty}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <View style={styles.scorePill}>
@@ -207,20 +257,53 @@ const styles = StyleSheet.create({
   activityInfoCol: {
     flex: 1,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
   activityTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: noklaiTheme.radii.full,
+    marginLeft: 6,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   activityTime: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#8A95A5',
+    marginBottom: 6,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  metaBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  metaBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   scorePill: {
     backgroundColor: '#DCFCE7',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: noklaiTheme.radii.sm,
+    alignSelf: 'center',
+    marginLeft: 8,
   },
   scoreText: {
     color: '#16A34A',

@@ -72,8 +72,23 @@ export const COGNITIVE_DOMAINS = {
 };
 
 export class CognitiveAnalyticsService {
-  constructor() {
+  constructor(customStorage = null) {
     this.memorySessions = null;
+    this._customStorage = customStorage;
+  }
+
+  _getStorage() {
+    return this._customStorage || getStorage();
+  }
+
+  _getStorageKey(patientId) {
+    const cleanId = (patientId || 'default').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `@cognitive_analytics_sessions_${cleanId}`;
+  }
+
+  _generateSessionId(patientId, gameId) {
+    this._sessionCounter = (this._sessionCounter || 0) + 1;
+    return `sess_${Date.now()}_${this._sessionCounter}_${patientId || 'P001'}_${gameId || 'game'}`;
   }
 
   /**
@@ -82,7 +97,7 @@ export class CognitiveAnalyticsService {
   async recordGameSession({
     gameId,
     gameName,
-    domain = 'visual_memory',
+    domain = null,
     difficulty = 'easy',
     durationSec = 0,
     questionsTotal = 0,
@@ -91,9 +106,36 @@ export class CognitiveAnalyticsService {
     responseTimeSec = null,
     score = 0,
     maxScore = 10,
-    patientId = 'P001',
+    patientId = null,
     metadata = {},
+    timestamp = null,
   }) {
+    // 1. Strict Validation: reject invalid, incomplete, or missing identity records
+    if (!patientId || typeof patientId !== 'string' || !patientId.trim()) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: missing patientId');
+      return null;
+    }
+    if (!gameId || typeof gameId !== 'string' || !gameId.trim()) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: missing gameId');
+      return null;
+    }
+    if (typeof durationSec === 'number' && durationSec < 0) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: negative duration');
+      return null;
+    }
+    if (typeof score === 'number' && (score < 0 || !Number.isFinite(score))) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: invalid score');
+      return null;
+    }
+    if (accuracy !== null && (accuracy < 0 || accuracy > 100 || !Number.isFinite(accuracy))) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: invalid accuracy out of 0..100');
+      return null;
+    }
+    if (questionsCorrect > questionsTotal && questionsTotal > 0) {
+      console.warn('[CognitiveAnalyticsService] Rejected session: correct attempts exceed total attempts');
+      return null;
+    }
+
     try {
       const computedAccuracy =
         accuracy !== null
@@ -102,8 +144,10 @@ export class CognitiveAnalyticsService {
           ? Math.round((questionsCorrect / questionsTotal) * 100)
           : null;
 
+      const generatedId = metadata?.sessionId || this._generateSessionId(patientId, gameId);
+
       const sessionRecord = {
-        id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: generatedId,
         patientId,
         gameId,
         gameName: gameName || this._getHumanGameName(gameId),
@@ -121,13 +165,14 @@ export class CognitiveAnalyticsService {
         maxScore: typeof maxScore === 'number' ? Math.max(1, maxScore) : 10,
         metadata: {
           ...metadata,
-          sessionId: metadata?.sessionId || null,
+          sessionId: metadata?.sessionId || generatedId,
+          status: metadata?.status || 'completed',
         },
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp || metadata?.timestamp || new Date().toISOString(),
       };
 
-      // 1. Read existing sessions and deduplicate exact duplicate records
-      const sessions = await this.getAllSessions();
+      // 2. Read existing sessions for this SPECIFIC patient and deduplicate exact duplicate records
+      const sessions = await this.getAllSessions(patientId);
       const filteredSessions = sessions.filter((s) => {
         if (s.id === sessionRecord.id) return false;
         if (
@@ -148,14 +193,15 @@ export class CognitiveAnalyticsService {
 
       // Keep recent 120 sessions to prevent storage bloat
       const trimmed = filteredSessions.slice(-120);
-      this.memorySessions = trimmed;
+      this._patientMemorySessions = this._patientMemorySessions || {};
+      this._patientMemorySessions[patientId] = trimmed;
 
-      const storage = getStorage();
+      const storage = this._getStorage();
       if (storage) {
-        await storage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(trimmed));
+        await storage.setItem(this._getStorageKey(patientId), JSON.stringify(trimmed));
       }
 
-      // 2. Dual-path sync to Supabase (safe background call)
+      // 3. Dual-path sync to Supabase (safe background call)
       this._syncToSupabase(sessionRecord).catch(() => {
         // Non-critical, offline safe background sync
       });
@@ -168,19 +214,24 @@ export class CognitiveAnalyticsService {
   }
 
   /**
-   * Retrieves all recorded sessions from local storage
+   * Retrieves all recorded sessions from local storage for a specific patient
    */
-  async getAllSessions() {
-    if (this.memorySessions) return [...this.memorySessions];
+  async getAllSessions(patientId = null) {
+    if (!patientId) return [];
+
+    this._patientMemorySessions = this._patientMemorySessions || {};
+    if (this._patientMemorySessions[patientId]) {
+      return [...this._patientMemorySessions[patientId]];
+    }
 
     try {
-      const storage = getStorage();
+      const storage = this._getStorage();
       if (storage) {
-        const raw = await storage.getItem(STORAGE_KEYS.SESSIONS);
+        const raw = await storage.getItem(this._getStorageKey(patientId));
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            this.memorySessions = parsed;
+            this._patientMemorySessions[patientId] = parsed;
             return [...parsed];
           }
         }
@@ -188,37 +239,52 @@ export class CognitiveAnalyticsService {
     } catch (err) {
       console.error('[CognitiveAnalyticsService] Error reading sessions from storage:', err);
     }
-    this.memorySessions = [];
+    this._patientMemorySessions[patientId] = [];
     return [];
   }
 
   /**
-   * Retrieves merged sessions from both local AsyncStorage and remote Supabase
+   * Retrieves merged sessions from both local AsyncStorage and remote Supabase strictly for target patient
    */
   async getMergedSessions(patientId = null) {
-    const localSessions = await this.getAllSessions();
+    if (!patientId) return [];
+
+    const localSessions = await this.getAllSessions(patientId);
     let remoteSessions = [];
 
-    if (patientId) {
-      try {
-        remoteSessions = await getRemoteGameSessions(patientId);
-      } catch (err) {
-        console.warn('[CognitiveAnalyticsService] Could not fetch remote sessions:', err);
-      }
+    try {
+      remoteSessions = await getRemoteGameSessions(patientId);
+    } catch (err) {
+      console.warn('[CognitiveAnalyticsService] Could not fetch remote sessions:', err);
     }
 
     const seenMap = new Map();
     // 1. Add local sessions first
     localSessions.forEach((s) => {
-      const key = `${s.patientId || ''}_${s.gameId || s.gameName || ''}_${(s.timestamp || '').slice(0, 16)}`;
+      if (s.patientId !== patientId) return; // Strict isolation
+      const key = s.id || `${s.patientId}_${s.gameId || ''}_${s.timestamp}`;
       seenMap.set(key, s);
     });
 
-    // 2. Merge remote sessions
+    // 2. Merge remote sessions (avoiding duplicates if already in local sessions)
     remoteSessions.forEach((s) => {
-      const key = `${s.patientId || ''}_${s.gameId || s.gameName || ''}_${(s.timestamp || '').slice(0, 16)}`;
+      if (s.patientId !== patientId) return; // Strict isolation
+      const key = s.id || `${s.patientId}_${s.gameId || ''}_${s.timestamp}`;
       if (!seenMap.has(key)) {
-        seenMap.set(key, s);
+        const isDuplicate = Array.from(seenMap.values()).some((loc) => {
+          if (loc.id === s.id) return true;
+          if (loc.gameId === s.gameId && loc.timestamp && s.timestamp) {
+            const locTime = new Date(loc.timestamp).getTime();
+            const remTime = new Date(s.timestamp).getTime();
+            if (!isNaN(locTime) && !isNaN(remTime) && Math.abs(locTime - remTime) < 3000) {
+              return true;
+            }
+          }
+          return false;
+        });
+        if (!isDuplicate) {
+          seenMap.set(key, s);
+        }
       }
     });
 
@@ -232,6 +298,10 @@ export class CognitiveAnalyticsService {
    */
   async getCaregiverDashboardData(timeframe = '7d', patientInfo = {}) {
     const pid = patientInfo?.patientId || null;
+    if (!pid) {
+      return this._buildEmptyDashboard(timeframe);
+    }
+
     const allSessions = await this.getMergedSessions(pid);
     const now = Date.now();
 
@@ -245,27 +315,42 @@ export class CognitiveAnalyticsService {
       return isNaN(t) || t >= cutoffMs;
     });
 
-    if (pid) {
-      filtered = filtered.filter((s) => {
-        if (!s.patientId || s.patientId === pid) return true;
-        if (pid === 'P001' && (s.patientId === 'guest_player' || s.patientId?.startsWith('P_'))) return true;
-        if (s.patientId === 'P001' && pid?.startsWith('P_')) return true;
-        return false;
-      });
+    // Strict patient identity check - ZERO wildcard matching
+    filtered = filtered.filter((s) => s.patientId === pid);
+
+    if (filtered.length === 0) {
+      return this._buildEmptyDashboard(timeframe);
     }
 
     // Convert sessions to round representation for verified CVI evaluation
-    const roundsForCvi = filtered.map((s) => ({
-      sessionId: s.metadata?.sessionId || s.id,
-      playerId: s.patientId,
-      gameId: s.gameId,
-      status: 'completed',
-      attempts: s.questionsTotal,
-      correctAttempts: s.questionsCorrect,
-      accuracy: typeof s.accuracy === 'number' ? s.accuracy / 100 : null,
-      durationSec: s.durationSec,
-      eligibleForCVI: s.metadata?.eligibleForCVI !== false && s.questionsTotal > 0,
-    }));
+    const roundsForCvi = filtered.map((s) => {
+      const attempts =
+        typeof s.questionsTotal === 'number' && s.questionsTotal > 0
+          ? s.questionsTotal
+          : typeof s.accuracy === 'number'
+          ? 1
+          : 0;
+      const correctAttempts =
+        typeof s.questionsCorrect === 'number' && s.questionsCorrect >= 0
+          ? s.questionsCorrect
+          : typeof s.accuracy === 'number'
+          ? s.accuracy >= 50
+            ? 1
+            : 0
+          : 0;
+
+      return {
+        sessionId: s.metadata?.sessionId || s.id,
+        playerId: s.patientId,
+        gameId: s.gameId,
+        status: 'completed',
+        attempts,
+        correctAttempts,
+        accuracy: typeof s.accuracy === 'number' ? s.accuracy / 100 : null,
+        durationSec: s.durationSec,
+        eligibleForCVI: s.metadata?.eligibleForCVI !== false && attempts > 0,
+      };
+    });
 
     const cviEvaluation = calculateCVI(roundsForCvi, { playerId: patientInfo?.patientId });
     const isCalibrated = cviEvaluation.status === 'ready';
@@ -278,7 +363,12 @@ export class CognitiveAnalyticsService {
     const totalQuestions = filtered.reduce((sum, s) => sum + (s.questionsTotal || 0), 0);
     const totalCorrect = filtered.reduce((sum, s) => sum + (s.questionsCorrect || 0), 0);
     const overallAccuracy =
-      totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : null;
+      totalQuestions > 0
+        ? Math.round((totalCorrect / totalQuestions) * 100)
+        : (() => {
+            const accs = filtered.map((s) => s.accuracy).filter((a) => typeof a === 'number');
+            return accs.length > 0 ? Math.round(accs.reduce((a, b) => a + b, 0) / accs.length) : null;
+          })();
 
     const validSpeeds = filtered
       .map((s) => s.responseTimeSec)
@@ -466,6 +556,7 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
           score: null,
           status: 'Awaiting data',
           sessionsPlayed: 0,
+          sessionsCount: 0,
         };
       } else {
         const validAccs = items
@@ -488,6 +579,7 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
           score: avgAcc,
           status,
           sessionsPlayed: items.length,
+          sessionsCount: items.length,
         };
       }
     }
@@ -677,6 +769,53 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
         lastPlayed: g.lastPlayed,
       };
     });
+  }
+
+  /**
+   * Constructs an authentic, un-fabricated empty dashboard state
+   */
+  _buildEmptyDashboard(timeframe = '7d') {
+    const emptyDomains = {};
+    for (const domainInfo of Object.values(COGNITIVE_DOMAINS)) {
+      emptyDomains[domainInfo.id] = {
+        ...domainInfo,
+        score: null,
+        status: 'Awaiting data',
+        sessionsPlayed: 0,
+        sessionsCount: 0,
+      };
+    }
+
+    return {
+      timeframe,
+      vitalityIndex: null,
+      cviEvaluation: {
+        calibrated: false,
+        validRounds: 0,
+        requiredRounds: CVI_CONSTANTS.DEFAULT_REQUIRED_ROUNDS || 3,
+        message: 'No gameplay data available yet. Complete at least 3 valid rounds of cognitive games to calculate your progress score.',
+      },
+      growthPercent: 0,
+      trendLabel: 'Awaiting Data',
+      overallAccuracy: null,
+      avgSpeed: null,
+      exerciseMinutes: 0,
+      totalSessions: 0,
+      streakDays: 0,
+      domains: emptyDomains,
+      clinicalObservations: [
+        {
+          type: 'neutral',
+          icon: 'information-circle-outline',
+          color: '#2563EB',
+          text: 'No gameplay data available yet. Complete a game to start seeing real performance insights.',
+        },
+      ],
+      gameBreakdown: [],
+      isCalibrated: false,
+      lastSessionAt: null,
+      disclaimer: CVI_CONSTANTS.DISCLAIMER,
+    };
   }
 
   /**

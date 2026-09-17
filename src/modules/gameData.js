@@ -1,5 +1,4 @@
-// This file stores the data for Panchal's Cognitive Games
-
+// Authentic game metadata definitions
 export const gameList = [
   {
     id: '1',
@@ -23,13 +22,3 @@ export const gameList = [
     icon: '🖼️',
   },
 ];
-
-// Mock function to simulate a game result
-export const getMockGameResult = () => {
-  return {
-    score: Math.floor(Math.random() * 100),
-    duration: Math.floor(Math.random() * 60) + 10, // seconds
-    difficulty: ['Easy', 'Medium', 'Hard'][Math.floor(Math.random() * 3)],
-    timestamp: new Date().toISOString(),
-  };
-};

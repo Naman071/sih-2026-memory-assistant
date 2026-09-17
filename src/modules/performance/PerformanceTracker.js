@@ -297,8 +297,16 @@ export class PerformanceTracker {
 
     // Record in unified caregiver cognitive analytics service
     try {
+      const gameNames = {
+        suh_tah_lam: 'Suh Tah Lam',
+        ubilakapki: 'Ubilakapki Coconut Toss',
+        dhop_khel: 'Dhopkhel Catch',
+        northeast: 'Sinaki Sthan',
+        stories: 'Memory Stories',
+      };
       await cognitiveAnalytics.recordGameSession({
         gameId: this.gameType,
+        gameName: gameNames[this.gameType] || this.gameType,
         domain:
           this.gameType === 'ubilakapki'
             ? 'spatial_coordination'

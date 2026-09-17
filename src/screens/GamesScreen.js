@@ -9,12 +9,14 @@ import NortheastMemoryGame from '../games/NortheastMemoryGame';
 import LanguageSelector from '../components/LanguageSelector';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePatient } from '../context/PatientContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 export default function GamesScreen() {
   const [selectedGame, setSelectedGame] = useState(null);
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
+  const { patientId } = usePatient?.() || {};
   const navigation = useNavigation();
   const route = useRoute();
 
@@ -169,7 +171,7 @@ export default function GamesScreen() {
   if (selectedGame === 'suhTahLam') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <SuhTahLamGame onExit={() => setSelectedGame(null)} />
+        <SuhTahLamGame onExit={() => setSelectedGame(null)} patientId={patientId} />
       </SafeAreaView>
     );
   }
@@ -177,7 +179,7 @@ export default function GamesScreen() {
   if (selectedGame === 'ubilakapki') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <UbilakapkiGame onExit={() => setSelectedGame(null)} />
+        <UbilakapkiGame onExit={() => setSelectedGame(null)} patientId={patientId} />
       </SafeAreaView>
     );
   }
@@ -185,7 +187,7 @@ export default function GamesScreen() {
   if (selectedGame === 'northeast') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <NortheastMemoryGame onExit={() => setSelectedGame(null)} />
+        <NortheastMemoryGame onExit={() => setSelectedGame(null)} patientId={patientId} />
       </SafeAreaView>
     );
   }
@@ -193,7 +195,7 @@ export default function GamesScreen() {
   if (selectedGame === 'dhopkhel') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <DhopkhelGame onExit={() => setSelectedGame(null)} />
+        <DhopkhelGame onExit={() => setSelectedGame(null)} patientId={patientId} />
       </SafeAreaView>
     );
   }
@@ -201,7 +203,7 @@ export default function GamesScreen() {
   if (selectedGame === 'stories') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <MemoryStoriesGame onExit={() => setSelectedGame(null)} />
+        <MemoryStoriesGame onExit={() => setSelectedGame(null)} patientId={patientId} />
       </SafeAreaView>
     );
   }

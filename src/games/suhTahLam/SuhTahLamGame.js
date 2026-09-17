@@ -263,39 +263,8 @@ export default function SuhTahLamGame({ onExit, patientId: propPatientId }) {
       if (result?.decision?.nextDifficulty) {
         setCurrentDifficulty(result.decision.nextDifficulty);
       }
-      try {
-        const roundData = result?.round;
-        // Only record valid gameplay sessions that have completed real attempts
-        if (roundData && roundData.status === 'completed' && roundData.attempts > 0) {
-          const currentSession = sessionManagerRef.current.getSession();
-          await cognitiveAnalytics.recordGameSession({
-            gameId: 'suh_tah_lam',
-            gameName: 'Suh Tah Lam',
-            domain: 'visual_memory',
-            difficulty: currentDifficulty,
-            durationSec: roundData.completionTimeSec || roundData.durationSec || 0,
-            questionsTotal: roundData.attempts,
-            questionsCorrect: roundData.correctAttempts,
-            accuracy: Math.round(roundData.accuracy * 100),
-            responseTimeSec:
-              typeof roundData.responseTimeMs === 'number' && roundData.responseTimeMs > 0
-                ? Math.round((roundData.responseTimeMs / 1000) * 10) / 10
-                : null,
-            score:
-              typeof roundData.score === 'number'
-                ? roundData.score
-                : Math.round((roundData.performanceScore || 0) * 10),
-            patientId: effectivePlayerId,
-            metadata: {
-              sessionId: roundData.sessionId || currentSession?.id || null,
-              eligibleForCVI: true,
-              dataQuality: 'verified_gameplay',
-            },
-          });
-        }
-      } catch (e) {
-        console.error('[SuhTahLamGame] Failed to record completed round into cognitiveAnalytics:', e);
-      }
+      // Note: trackerRef.current.completeRound() already persisted and recorded
+      // the completed round into cognitiveAnalytics with verified gameplay metrics.
     }
     sessionManagerRef.current.recordRoundCompleted();
     setCurrentStep(GAME_STEPS.RESULT);

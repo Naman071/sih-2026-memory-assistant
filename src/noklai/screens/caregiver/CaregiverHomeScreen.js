@@ -27,6 +27,7 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
     setActiveCaregiverSubScreen,
     computedStats,
     realRecentActivity,
+    analyticsData,
   } = useNoklai();
 
   const handleViewProgress = () => {
@@ -132,6 +133,11 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
                   <Text style={[styles.statusText, { color: hasActivity ? '#16A34A' : '#656F7D' }]}>
                     {hasActivity ? 'Active today' : 'Ready for exercises'}
                   </Text>
+                  {analyticsData && analyticsData.vitalityIndex !== null && analyticsData.vitalityIndex !== undefined && (
+                    <View style={styles.cviMiniBadge}>
+                      <Text style={styles.cviMiniBadgeText}>CVI: {analyticsData.vitalityIndex}%</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -275,6 +281,141 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
             </Text>
           </NoklaiCard>
         )}
+
+        {/* Cognitive Focus Areas (In Simple Terms) */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+            ]}
+          >
+            Cognitive Areas Practiced
+          </Text>
+        </View>
+
+        <View style={styles.domainsGrid}>
+          <View
+            style={[
+              styles.domainCard,
+              {
+                backgroundColor: isDarkMode ? '#1E232E' : '#FFFFFF',
+                borderColor: isDarkMode ? '#2D3545' : '#E5E7EB',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+          >
+            <View style={[styles.domainIconCircle, { backgroundColor: '#F3E8FF' }]}>
+              <Ionicons name="bulb-outline" size={20} color="#7C3AED" />
+            </View>
+            <Text style={[styles.domainTitle, { color: isDarkMode ? '#E9D5FF' : '#4C1D95' }]}>
+              Memory
+            </Text>
+            <Text style={[styles.domainDesc, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
+              Recalling traditional patterns, scenic landmarks & folklore
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.domainCard,
+              {
+                backgroundColor: isDarkMode ? '#1E232E' : '#FFFFFF',
+                borderColor: isDarkMode ? '#2D3545' : '#E5E7EB',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+          >
+            <View style={[styles.domainIconCircle, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="eye-outline" size={20} color="#15803D" />
+            </View>
+            <Text style={[styles.domainTitle, { color: isDarkMode ? '#86EFAC' : '#15803D' }]}>
+              Focus & Attention
+            </Text>
+            <Text style={[styles.domainDesc, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
+              Tracking movements, rhythm steps & visual attention
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.domainCard,
+              {
+                backgroundColor: isDarkMode ? '#1E232E' : '#FFFFFF',
+                borderColor: isDarkMode ? '#2D3545' : '#E5E7EB',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+          >
+            <View style={[styles.domainIconCircle, { backgroundColor: '#DBEAFE' }]}>
+              <Ionicons name="hand-left-outline" size={20} color="#1D4ED8" />
+            </View>
+            <Text style={[styles.domainTitle, { color: isDarkMode ? '#93C5FD' : '#1E40AF' }]}>
+              Reaction & Coordination
+            </Text>
+            <Text style={[styles.domainDesc, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
+              Gentle hand-eye rhythm and spatial decision timing
+            </Text>
+          </View>
+        </View>
+
+        {/* Supportive Suggestions for Caregivers */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+            ]}
+          >
+            Supportive Suggestions for Caregiver
+          </Text>
+        </View>
+
+        <NoklaiCard style={styles.suggestionsCard}>
+          <View style={styles.suggestionItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
+            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
+              Encourage the patient to complete one short activity.
+            </Text>
+          </View>
+
+          <View style={styles.suggestionItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
+            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
+              Use familiar family photos or stories for memory conversations.
+            </Text>
+          </View>
+
+          <View style={styles.suggestionItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
+            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
+              Allow the patient to take breaks.
+            </Text>
+          </View>
+
+          <View style={[styles.suggestionItem, { marginBottom: 0 }]}>
+            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
+            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
+              Celebrate effort instead of focusing only on scores.
+            </Text>
+          </View>
+        </NoklaiCard>
+
+        {/* Clear Non-Medical Disclaimer */}
+        <View
+          style={[
+            styles.disclaimerBox,
+            {
+              backgroundColor: isDarkMode ? '#17202A' : '#F8FAFC',
+              borderColor: isDarkMode ? '#2E3D4F' : '#E2E8F0',
+            },
+          ]}
+        >
+          <Ionicons name="information-circle" size={20} color="#64748B" style={{ marginRight: 8, marginTop: 1 }} />
+          <Text style={[styles.disclaimerText, { color: isDarkMode ? '#94A3B8' : '#64748B' }]}>
+            NOKLAI provides supportive cognitive activities and progress insights. It does not diagnose dementia or replace professional medical advice.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -472,5 +613,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 17,
+  },
+  cviMiniBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  cviMiniBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  domainsGrid: {
+    gap: 10,
+    marginBottom: 8,
+  },
+  domainCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: noklaiTheme.radii.lg,
+    borderWidth: 1,
+  },
+  domainIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  domainTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  domainDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    flex: 1,
+  },
+  suggestionsCard: {
+    padding: 16,
+    borderRadius: noklaiTheme.radii.xl,
+    marginBottom: 16,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  suggestionBullet: {
+    marginRight: 10,
+    marginTop: 1,
+  },
+  suggestionText: {
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
+  },
+  disclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 14,
+    borderRadius: noklaiTheme.radii.lg,
+    borderWidth: 1,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    lineHeight: 17,
+    flex: 1,
   },
 });

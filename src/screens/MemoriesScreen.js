@@ -18,13 +18,11 @@ export default function MemoriesScreen() {
   const loadFamily = async () => {
     try {
       setLoading(true);
-      console.log(`MemoriesScreen: patientId = ${patientId}`);
       if (!patientId) {
         setFamily([]);
         return;
       }
       const data = await getFamilyMembers(patientId);
-      console.log(`MemoriesScreen: family =`, data);
       setFamily(data || []);
     } catch (error) {
       console.error('MemoriesScreen: Error fetching family:', error);

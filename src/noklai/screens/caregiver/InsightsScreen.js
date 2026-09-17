@@ -61,13 +61,13 @@ export default function InsightsScreen({ onBack, onNavigateToGames }) {
   const domainsList = useMemo(() => {
     const d = analyticsData?.domains || {};
     return [
-      { key: 'visual_memory', label: 'Memory Recall', icon: 'images', score: d.visual_memory?.score ?? (hasSessions ? 75 : null), color: '#2563EB' },
-      { key: 'attention_focus', label: 'Attention & Focus', icon: 'eye', score: d.attention_focus?.score ?? (hasSessions ? 80 : null), color: '#16A34A' },
-      { key: 'processing_speed', label: 'Reaction Speed', icon: 'flash', score: d.processing_speed?.score ?? (hasSessions ? 70 : null), color: '#D97706' },
-      { key: 'episodic_recall', label: 'Cultural Stories', icon: 'book', score: d.episodic_recall?.score ?? (hasSessions ? 85 : null), color: '#7C3AED' },
-      { key: 'spatial_coordination', label: 'Spatial Awareness', icon: 'compass', score: d.spatial_coordination?.score ?? (hasSessions ? 72 : null), color: '#EA580C' },
+      { key: 'visual_memory', label: 'Memory Recall', icon: 'images', score: d.visual_memory?.score ?? null, color: '#2563EB' },
+      { key: 'attention_focus', label: 'Attention & Focus', icon: 'eye', score: d.attention_focus?.score ?? null, color: '#16A34A' },
+      { key: 'processing_speed', label: 'Reaction Speed', icon: 'flash', score: d.processing_speed?.score ?? null, color: '#D97706' },
+      { key: 'episodic_recall', label: 'Cultural Stories', icon: 'book', score: d.episodic_recall?.score ?? null, color: '#7C3AED' },
+      { key: 'spatial_coordination', label: 'Spatial Awareness', icon: 'compass', score: d.spatial_coordination?.score ?? null, color: '#EA580C' },
     ];
-  }, [analyticsData, hasSessions]);
+  }, [analyticsData]);
 
   // Determine highest domain
   const bestDomain = useMemo(() => {
@@ -160,7 +160,7 @@ export default function InsightsScreen({ onBack, onNavigateToGames }) {
                 { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
               ]}
             >
-              Complete your first brain exercise to see your vitality insights! Each cultural puzzle and rhythm game keeps your memory active, joyful, and connected.
+              No gameplay data available yet. Complete a game to start seeing real performance insights.
             </Text>
 
             {onNavigateToGames && (
@@ -326,7 +326,7 @@ export default function InsightsScreen({ onBack, onNavigateToGames }) {
               </Text>
 
               {domainsList.map((domain) => {
-                const percent = domain.score !== null ? Math.min(100, Math.max(10, domain.score)) : 50;
+                const percent = domain.score !== null ? Math.min(100, Math.max(0, domain.score)) : 0;
                 return (
                   <View key={domain.key} style={styles.domainItem}>
                     <View style={styles.domainHeaderRow}>
@@ -344,7 +344,7 @@ export default function InsightsScreen({ onBack, onNavigateToGames }) {
                         </Text>
                       </View>
                       <Text style={[styles.domainScoreText, { color: domain.color }]}>
-                        {domain.score !== null ? `${domain.score}%` : 'Calibrating'}
+                        {domain.score !== null ? `${domain.score}%` : 'Awaiting data'}
                       </Text>
                     </View>
                     {/* Progress Bar */}
@@ -431,7 +431,9 @@ export default function InsightsScreen({ onBack, onNavigateToGames }) {
                         <Text style={styles.sessionScoreText}>
                           {session.accuracy !== null && session.accuracy !== undefined
                             ? `${session.accuracy}%`
-                            : `${session.score ?? 10} pts`}
+                            : session.score !== null && session.score !== undefined
+                            ? `${session.score} pts`
+                            : '--'}
                         </Text>
                       </View>
                     </View>

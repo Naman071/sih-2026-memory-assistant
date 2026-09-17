@@ -1,4 +1,14 @@
-import { t } from '../i18n/index.js';
+import { sendGeminiChatMessage, isGeminiConfigured } from '../services/GeminiService.js';
+
+// Safe translation lookup supporting both React Native and test environments
+let t = (key) => null;
+try {
+  // eslint-disable-next-line
+  const i18n = require('../i18n/index.js');
+  if (i18n && typeof i18n.t === 'function') t = i18n.t;
+} catch (e) {
+  // Safe in plain Node environments
+}
 
 /**
  * Intelligent Multi-Lingual AI Memory Companion Engine
@@ -43,7 +53,68 @@ function detectLanguage(text) {
 }
 
 /**
- * Core conversational generator with full context awareness
+ * Asynchronous real Gemini AI conversation handler with multi-turn memory
+ */
+export const getAIResponseAsync = async (question, contextOrPatientId = 'P001', history = []) => {
+  let ctx = {};
+  if (typeof contextOrPatientId === 'object' && contextOrPatientId !== null) {
+    ctx = contextOrPatientId;
+  } else {
+    ctx = { patientId: contextOrPatientId || 'P001' };
+  }
+
+  if (isGeminiConfigured()) {
+    try {
+      const geminiResult = await sendGeminiChatMessage({
+        message: question,
+        history,
+        context: ctx,
+      });
+
+      if (geminiResult.success && geminiResult.text) {
+        return {
+          success: true,
+          text: geminiResult.text,
+          source: 'gemini',
+        };
+      }
+
+      return {
+        success: false,
+        error: geminiResult.error,
+        message: geminiResult.message,
+        fallback: getAIResponse(question, ctx),
+        source: 'error',
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: 'EXCEPTION',
+        message: err.message || 'Error reaching Gemini',
+        fallback: getAIResponse(question, ctx),
+        source: 'error',
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: 'NO_API_KEY',
+    message: 'Google Gemini API key is not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY in your .env file to enable live AI responses.',
+    fallback: getAIResponse(question, ctx),
+    source: 'offline_fallback',
+  };
+};
+
+// In-session learned patient names keyed by patientId or session
+export const sessionLearnedNames = {};
+
+export const clearSessionLearnedNames = () => {
+  for (const k in sessionLearnedNames) delete sessionLearnedNames[k];
+};
+
+/**
+ * Core conversational generator with full context awareness (Offline / Fallback mode)
  */
 export const getAIResponse = (question, contextOrPatientId = 'P001') => {
   if (!question || typeof question !== 'string') {
@@ -58,7 +129,8 @@ export const getAIResponse = (question, contextOrPatientId = 'P001') => {
     ctx = { patientId: contextOrPatientId || 'P001' };
   }
 
-  const pName = ctx.patientName || 'Loved One';
+  const pid = ctx.patientId || 'P001';
+  let pName = ctx.learnedName || sessionLearnedNames[pid] || ctx.patientName || 'Loved One';
   const cName = ctx.caregiverName || 'Caregiver';
   const isCaregiver = ctx.role === 'caregiver';
   const lang = ctx.language || detectLanguage(question);
@@ -72,9 +144,87 @@ export const getAIResponse = (question, contextOrPatientId = 'P001') => {
   const overallAcc = analytics.overallAccuracy ? `${analytics.overallAccuracy}%` : null;
 
   // -------------------------------------------------------------
-  // 1. GREETINGS & INTRODUCTIONS
+  // 0. MEDICAL SAFETY & CLINICAL BOUNDARIES (HIGHEST PRIORITY)
   // -------------------------------------------------------------
-  if (/^(hi|hello|hey|namaste|pranam|namaskar|shubh prabhat|good morning|good evening|good afternoon|ki khobor|kemon acho)\b/.test(query) || query === 'hi' || query === 'hello') {
+  if (
+    query.includes('diagnose') ||
+    query.includes('do i have dementia') ||
+    query.includes('do i have alzheimer') ||
+    query.includes('kya mujhe dementia') ||
+    query.includes('cure dementia') ||
+    query.includes('what medicine should i take') ||
+    query.includes('kon si dawa lu') ||
+    query.includes('chest pain') ||
+    query.includes('prescribe')
+  ) {
+    if (lang === 'hi') {
+      return `मैं सामान्य सहायता और संज्ञानात्मक अभ्यास प्रदान कर सकता हूँ, लेकिन मैं चिकित्सीय निदान नहीं कर सकता। कृपया चिकित्सीय सलाह के लिए किसी डॉक्टर या अपने देखभालकर्ता (${cName} जी) से संपर्क करें।`;
+    }
+    return `I can provide general support, but I cannot diagnose medical conditions. Please contact a healthcare professional or your caregiver for medical advice.`;
+  }
+
+  // -------------------------------------------------------------
+  // 1. IN-SESSION NAME LEARNING ("MY NAME IS DHRUV")
+  // -------------------------------------------------------------
+  const nameIntroMatch = question.match(/(?:my name is|mera naam hai|mera naam|i am called|call me|main hoon|আমি|আমার নাম)\s+([A-Za-z\u0900-\u097F\u0980-\u09FF]+)/i);
+  if (nameIntroMatch && !query.includes('what is') && !query.includes('kya')) {
+    const rawName = nameIntroMatch[1].trim();
+    const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+    sessionLearnedNames[pid] = formattedName;
+    pName = formattedName;
+
+    if (lang === 'hi') {
+      return `नमस्ते ${formattedName} जी! आपसे मिलकर बहुत खुशी हुई। मैं नोकलाई (NOKLAI) हूँ। मैं आपकी याददाश्त और दिमागी गतिविधियों में मदद के लिए यहाँ हूँ।`;
+    }
+    return `Nice to meet you, ${formattedName}. I'm NOKLAI. I'm here to help you with memory activities.`;
+  }
+
+  // -------------------------------------------------------------
+  // 2. ENERGY / TIREDNESS: "I FEEL TIRED"
+  // -------------------------------------------------------------
+  if (
+    query.includes('tired') ||
+    query.includes('feel tired') ||
+    query.includes('feeling tired') ||
+    query.includes('thak gaya') ||
+    query.includes('thakan') ||
+    query.includes('exhausted')
+  ) {
+    if (lang === 'hi') {
+      return `कोई बात नहीं। आप थोड़ा आराम कर लीजिए। जब भी आप तैयार महसूस करें, हम एक छोटी सी गतिविधि आज़मा सकते हैं।`;
+    }
+    return `That's okay. You can take a rest. We can try a small activity whenever you feel ready.`;
+  }
+
+  // -------------------------------------------------------------
+  // 3. JOKES: "TELL ME A JOKE"
+  // -------------------------------------------------------------
+  if (query.includes('joke') || query.includes('chutkula') || query.includes('make me laugh') || query.includes('hasao')) {
+    if (lang === 'hi') {
+      return `एक छोटा सा चुटकुला आपके चेहरे पर मुस्कान के लिए: 😄\n\nडॉक्टर: आपको चश्मा लगाने की सख्त जरूरत है।\nमरीज: आपको कैसे पता चला डॉक्टर साहब?\nडॉक्टर: क्योंकि आप क्लीनिक की जगह मिठाई की दुकान में घुस आए हैं! 🍬\n\nआशा है आपको अच्छा लगा!`;
+    }
+    return `Why did the scarecrow win an award? Because he was outstanding in his field! 😄 Hope that brought a smile to your face.`;
+  }
+
+  // -------------------------------------------------------------
+  // 4. GAME SUGGESTIONS: "WHAT CAN I PLAY?"
+  // -------------------------------------------------------------
+  if (
+    query.includes('what can i play') ||
+    query.includes('kya khel sakta') ||
+    query.includes('kya khel') ||
+    query.includes('what should i play')
+  ) {
+    if (lang === 'hi') {
+      return `आप धोपखेल (Dhopkhel), उबिलाकापकी (Ubilakapki), या एक मेमोरी स्टोरी (Xuworoni Kotha) खेल सकते हैं। क्या आप इनमें से कोई एक शुरू करना चाहेंगे?`;
+    }
+    return `You can try Dhopkhel, Ubilakapki, or a Memory Story. Would you like to start one?`;
+  }
+
+  // -------------------------------------------------------------
+  // 5. GREETINGS & INTRODUCTIONS
+  // -------------------------------------------------------------
+  if (/^(hi|hello|hey|namaste|pranam|namaskar|shubh prabhat|good morning|good evening|good afternoon|ki khobor|kemon acho|नमस्ते|प्रणाम|नमस्कार|নমস্কাৰ|নমস্কার)/iu.test(query) || query.includes('नमस्ते') || query.includes('নমস্কাৰ') || query.includes('নমস্কার') || query === 'hi' || query === 'hello') {
     if (lang === 'hi') {
       return isCaregiver
         ? `नमस्ते ${cName} जी! मैं आपका नोकलाई (Noklai) केयर असिस्टेंट हूँ। मैं ${pName} जी की दिनचर्या, गेम प्रोग्रेस, और याददाश्त देखभाल में आपकी मदद के लिए उपस्थित हूँ। आज आप क्या जानना चाहेंगे?`
@@ -96,7 +246,28 @@ export const getAIResponse = (question, contextOrPatientId = 'P001') => {
   }
 
   // -------------------------------------------------------------
-  // 2. WHO ARE YOU / WHAT CAN YOU DO (IDENTITY & CAPABILITIES)
+  // 6. IDENTITY: "WHAT IS MY NAME?" / "WHO IS MY CAREGIVER?"
+  // -------------------------------------------------------------
+  if (query.includes('what is my name') || query.includes('mera naam kya') || query.includes('who am i') || query.includes('mein kaun')) {
+    if (lang === 'hi') {
+      return isCaregiver
+        ? `आप ${cName} हैं, और आप ${pName} जी की प्राथमिक देखभाल (Primary Caregiver) कर रहे हैं।`
+        : `आपका नाम ${pName} है!`;
+    }
+    return isCaregiver
+      ? `You are ${cName}, the primary caregiver supporting ${pName}.`
+      : `Your name is ${pName}.`;
+  }
+
+  if (query.includes('who is my caregiver') || query.includes('mera caregiver kaun') || query.includes('meri dekhbhal kaun')) {
+    if (lang === 'hi') {
+      return `आपके प्राथमिक देखभालकर्ता (Primary Caregiver) ${cName} जी हैं। वे हमेशा आपकी मदद और सुरक्षा के लिए तत्पर रहते हैं।`;
+    }
+    return `Your primary caregiver is ${cName}. They are always here to support and care for you.`;
+  }
+
+  // -------------------------------------------------------------
+  // 3. WHO ARE YOU / WHAT CAN YOU DO (IDENTITY & CAPABILITIES)
   // -------------------------------------------------------------
   if (query.includes('who are you') || query.includes('kaun ho') || query.includes('tum kaun') || query.includes('kya kar sakte') || query.includes('help') || query.includes('madad') || query.includes('kya kaam')) {
     if (lang === 'hi') {

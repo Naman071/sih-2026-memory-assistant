@@ -21,7 +21,12 @@ import QuoteCard from '../../components/QuoteCard';
 import AIButton from '../../components/AIButton';
 import NoklaiButton from '../../components/NoklaiButton';
 
-export default function PatientHomeScreen({ onNavigateToGames }) {
+export default function PatientHomeScreen({
+  onNavigateToGames,
+  onContinueActivity,
+  onOpenAI,
+  onNavigateToProgress,
+}) {
   const { isDarkMode } = useTheme();
   const {
     activePatientId,
@@ -67,13 +72,6 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
     setAddModalVisible(false);
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   return (
     <SafeAreaView
       style={[
@@ -86,16 +84,16 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
       ]}
     >
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Patient Greeting & Avatar */}
+        {/* Welcoming Greeting & Avatar */}
         <View style={styles.heroRow}>
           <View style={{ flex: 1 }}>
             <Text
               style={[
                 styles.greetingSub,
-                { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+                { color: isDarkMode ? '#86EFAC' : '#15803D' },
               ]}
             >
-              {getGreeting()},
+              Namaste, {activePatientName}!
             </Text>
             <Text
               style={[
@@ -103,13 +101,140 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
                 { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
               ]}
             >
-              {activePatientName}!
+              Welcome back. What would you like to do today?
+            </Text>
+            <Text
+              style={[
+                styles.calmEncourageTag,
+                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+            >
+              Let’s try together • Take your time
             </Text>
           </View>
 
           <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
             <Text style={{ fontSize: 36 }}>{patientAvatar}</Text>
           </View>
+        </View>
+
+        {/* 4 Large Patient Action Cards */}
+        <View style={styles.fourCardsContainer}>
+          {/* Card 1: Play a Memory Game */}
+          <TouchableOpacity
+            style={[
+              styles.patientBigActionCard,
+              {
+                backgroundColor: isDarkMode ? '#221B36' : '#FAF5FF',
+                borderColor: isDarkMode ? '#47366B' : '#E9D5FF',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+            activeOpacity={0.85}
+            onPress={onNavigateToGames}
+            accessibilityRole="button"
+            accessibilityLabel="1. Play a Memory Game"
+          >
+            <View style={[styles.bigActionIconBadge, { backgroundColor: '#7C3AED' }]}>
+              <Ionicons name="game-controller" size={28} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bigActionTitle, { color: isDarkMode ? '#E9D5FF' : '#4C1D95' }]}>
+                1. Play a Memory Game
+              </Text>
+              <Text style={[styles.bigActionSub, { color: isDarkMode ? '#CBD5E1' : '#6B7280' }]}>
+                Suh Tah Lam, Dhopkhel, Ubilakapki & Northeast Memories
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#C4B5FD' : '#7C3AED'} />
+          </TouchableOpacity>
+
+          {/* Card 2: Continue Activity */}
+          <TouchableOpacity
+            style={[
+              styles.patientBigActionCard,
+              {
+                backgroundColor: isDarkMode ? '#132A1C' : '#F0FDF4',
+                borderColor: isDarkMode ? '#1F4B30' : '#BBF7D0',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+            activeOpacity={0.85}
+            onPress={() => onContinueActivity ? onContinueActivity('suhTahLam') : onNavigateToGames?.()}
+            accessibilityRole="button"
+            accessibilityLabel="2. Continue Activity"
+          >
+            <View style={[styles.bigActionIconBadge, { backgroundColor: '#16A34A' }]}>
+              <Ionicons name="play-circle" size={28} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bigActionTitle, { color: isDarkMode ? '#86EFAC' : '#14532D' }]}>
+                2. Continue Activity
+              </Text>
+              <Text style={[styles.bigActionSub, { color: isDarkMode ? '#CBD5E1' : '#6B7280' }]}>
+                Resume gentle daily exercise — take your time, zero rush
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#86EFAC' : '#16A34A'} />
+          </TouchableOpacity>
+
+          {/* Card 3: Talk to NOKLAI */}
+          <TouchableOpacity
+            style={[
+              styles.patientBigActionCard,
+              {
+                backgroundColor: isDarkMode ? '#142533' : '#F0F9FF',
+                borderColor: isDarkMode ? '#23445F' : '#BAE6FD',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+            activeOpacity={0.85}
+            onPress={() => onOpenAI ? onOpenAI() : setAiModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="3. Talk to NOKLAI"
+          >
+            <View style={[styles.bigActionIconBadge, { backgroundColor: '#0284C7' }]}>
+              <Ionicons name="sparkles" size={26} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bigActionTitle, { color: isDarkMode ? '#7DD3FC' : '#0369A1' }]}>
+                3. Talk to NOKLAI
+              </Text>
+              <Text style={[styles.bigActionSub, { color: isDarkMode ? '#CBD5E1' : '#6B7280' }]}>
+                Voice & chat companion for reminders, folklore & friendly talks
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#7DD3FC' : '#0284C7'} />
+          </TouchableOpacity>
+
+          {/* Card 4: View My Progress */}
+          <TouchableOpacity
+            style={[
+              styles.patientBigActionCard,
+              {
+                backgroundColor: isDarkMode ? '#2B2313' : '#FFFBEB',
+                borderColor: isDarkMode ? '#54421B' : '#FDE68A',
+              },
+              !isDarkMode && noklaiTheme.shadows.card,
+            ]}
+            activeOpacity={0.85}
+            onPress={() => onNavigateToProgress ? onNavigateToProgress() : onNavigateToGames?.()}
+            accessibilityRole="button"
+            accessibilityLabel="4. View My Progress"
+          >
+            <View style={[styles.bigActionIconBadge, { backgroundColor: '#D97706' }]}>
+              <Ionicons name="stats-chart" size={24} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bigActionTitle, { color: isDarkMode ? '#FCD34D' : '#92400E' }]}>
+                4. View My Progress
+              </Text>
+              <Text style={[styles.bigActionSub, { color: isDarkMode ? '#CBD5E1' : '#6B7280' }]}>
+                See completed exercises, routine consistency & achievements
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#FCD34D' : '#D97706'} />
+          </TouchableOpacity>
         </View>
 
         {/* Connected Caregiver Card */}
@@ -192,44 +317,6 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
             </Text>
           </View>
         </View>
-
-        {/* AI Memory Companion Button */}
-        <AIButton
-          label="Talk with Noklai AI"
-          sublabel="Your friendly voice & memory companion"
-          onPress={() => setAiModalVisible(true)}
-        />
-
-        {/* Brain Games Hero Card (Prominent launcher now that memories option is removed) */}
-        <TouchableOpacity
-          style={[
-            styles.gamesHeroCard,
-            {
-              backgroundColor: isDarkMode ? '#221B36' : '#FAF5FF',
-              borderColor: isDarkMode ? '#47366B' : '#E9D5FF',
-            },
-            !isDarkMode && noklaiTheme.shadows.card,
-          ]}
-          activeOpacity={0.85}
-          onPress={onNavigateToGames}
-        >
-          <View style={styles.gamesHeroLeft}>
-            <View style={[styles.gamesIconBadge, { backgroundColor: '#5B409E' }]}>
-              <Ionicons name="game-controller" size={26} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.gamesHeroTitle, { color: isDarkMode ? '#E9D5FF' : '#4C1D95' }]}>
-                Play Cultural Brain Games
-              </Text>
-              <Text style={styles.gamesHeroSub}>
-                Suh Tah Lam, Ubilakapki, Dhopkhel & Northeast Memories
-              </Text>
-            </View>
-          </View>
-          <View style={styles.playArrowBadge}>
-            <Ionicons name="play" size={18} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
 
         {/* Daily Schedule / Reminders Section - NO FAKE DEFAULTS */}
         <View style={styles.sectionHeadingRow}>
@@ -419,19 +506,27 @@ const styles = StyleSheet.create({
   },
   heroRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
   greetingSub: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   patientNameHeading: {
-    fontSize: 34,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    lineHeight: 30,
+  },
+  calmEncourageTag: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 6,
   },
   avatarCircle: {
     width: 66,
@@ -441,6 +536,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    marginLeft: 12,
+  },
+  fourCardsContainer: {
+    gap: 14,
+    marginBottom: 22,
+  },
+  patientBigActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: noklaiTheme.radii.xl,
+    borderWidth: 1.5,
+  },
+  bigActionIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  bigActionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  bigActionSub: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   caregiverPillCard: {
     flexDirection: 'row',

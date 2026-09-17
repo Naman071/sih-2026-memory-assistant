@@ -29,10 +29,8 @@ export default function HomeScreen() {
       }
       setLoadingReminders(true);
       try {
-        console.log(`HomeScreen: patientId = ${patientId}`);
         const data = await getReminders(patientId);
         if (isMounted) {
-          console.log(`HomeScreen: reminders =`, data);
           setReminders(data || []);
           setStatusState({ type: 'connected', name: patientName });
         }

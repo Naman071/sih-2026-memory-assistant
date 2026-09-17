@@ -135,15 +135,15 @@ export default function AppLaunchScreen() {
               { color: isDarkMode ? '#F8FAFC' : '#111827' },
             ]}
           >
-            Caring for Brighter Tomorrows
+            Memory & Care Platform
           </Text>
           <Text
             style={[
               styles.caringSubline,
-              { color: isDarkMode ? '#94A3B8' : '#64748B' },
+              { color: isDarkMode ? '#CBD5E1' : '#4B5563' },
             ]}
           >
-            Empowering dementia care through native culture
+            A culturally familiar memory assistance platform for elderly people and their caregivers.
           </Text>
 
           {/* Action Button */}

@@ -48,7 +48,6 @@ export const getAllPatients = async () => {
 };
 
 export const getReminders = async (patientId) => {
-  console.log(`Fetching reminders for patient: ${patientId}`);
   const { data, error } = await supabase
     .from('reminders')
     .select('*')
@@ -58,12 +57,10 @@ export const getReminders = async (patientId) => {
     console.error('Error fetching reminders:', error);
     throw error;
   }
-  console.log(`Data received from Supabase:`, data);
-  return data;
+  return data || [];
 };
 
 export const getFamilyMembers = async (patientId) => {
-  console.log(`Fetching family members for patient: ${patientId}`);
   const { data, error } = await supabase
     .from('family_members')
     .select('*')
@@ -72,12 +69,10 @@ export const getFamilyMembers = async (patientId) => {
     console.error('Error fetching family members:', error);
     throw error;
   }
-  console.log(`Data received from Supabase:`, data);
-  return data;
+  return data || [];
 };
 
 export const addFamilyMember = async (data) => {
-  console.log('Adding family member with phone:', data);
   const memberPayload = {
     patient_id: data.patient_id,
     name: data.name,
@@ -263,8 +258,19 @@ export const getRemoteGameSessions = async (patientId) => {
           ? Math.round((validRts.reduce((a, b) => a + b, 0) / validRts.length) * 10) / 10
           : null;
 
-      const scoreNum = typeof r.score === 'number' ? r.score : 10;
-      const accuracyCalc = scoreNum >= 10 ? 100 : scoreNum > 0 ? scoreNum * 10 : 70;
+      const scoreNum = typeof r.score === 'number' ? r.score : null;
+      const totalAttempts = relatedPerfs.length;
+      const correctAttempts = relatedPerfs.filter((p) => p.is_correct === true).length;
+
+      let genuineAccuracy = null;
+      if (totalAttempts > 0) {
+        genuineAccuracy = Math.round((correctAttempts / totalAttempts) * 100);
+      } else if (scoreNum !== null) {
+        // If score is normalized 0-10 or 0-100
+        genuineAccuracy = scoreNum <= 10 ? Math.round(scoreNum * 10) : Math.min(100, Math.round(scoreNum));
+      }
+
+      const durationSec = typeof r.duration === 'number' && r.duration >= 0 ? r.duration : 0;
 
       return {
         id: `supabase_gr_${r.id}`,
@@ -272,16 +278,16 @@ export const getRemoteGameSessions = async (patientId) => {
         gameId: gId,
         gameName: gName,
         difficulty: (r.difficulty || 'Medium').toLowerCase(),
-        durationSec: r.duration || 45,
-        questionsTotal: 10,
-        questionsCorrect: Math.round(accuracyCalc / 10),
-        accuracy: accuracyCalc,
+        durationSec,
+        questionsTotal: totalAttempts > 0 ? totalAttempts : (scoreNum !== null ? 1 : 0),
+        questionsCorrect: totalAttempts > 0 ? correctAttempts : (scoreNum !== null && scoreNum > 0 ? 1 : 0),
+        accuracy: genuineAccuracy,
         responseTimeSec: avgRt,
-        score: scoreNum,
+        score: scoreNum !== null ? scoreNum : 0,
         maxScore: 10,
-        timestamp: r.played_at || new Date().toISOString(),
+        timestamp: r.played_at || null,
         metadata: {
-          eligibleForCVI: true,
+          eligibleForCVI: genuineAccuracy !== null,
           source: 'supabase_remote',
         },
       };

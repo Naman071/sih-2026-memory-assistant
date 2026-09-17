@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { savePatientProfile } from '../modules/database';
 
@@ -138,28 +138,44 @@ export function PatientProvider({ children }) {
     setIsEditingSetup(false);
   }, []);
 
+  const contextValue = useMemo(() => ({
+    isSetupDone,
+    isLoading,
+    isEditingSetup,
+    patientId,
+    currentPatientId: patientId,
+    patientName,
+    currentPatientName: patientName,
+    patientAge,
+    patientPhone,
+    caregiverName,
+    caregiverPhone,
+    relationship,
+    photoUrl,
+    savePatientSetup,
+    selectPatient,
+    openSetupWizard,
+    closeSetupWizard,
+  }), [
+    isSetupDone,
+    isLoading,
+    isEditingSetup,
+    patientId,
+    patientName,
+    patientAge,
+    patientPhone,
+    caregiverName,
+    caregiverPhone,
+    relationship,
+    photoUrl,
+    savePatientSetup,
+    selectPatient,
+    openSetupWizard,
+    closeSetupWizard,
+  ]);
+
   return (
-    <PatientContext.Provider
-      value={{
-        isSetupDone,
-        isLoading,
-        isEditingSetup,
-        patientId,
-        currentPatientId: patientId,
-        patientName,
-        currentPatientName: patientName,
-        patientAge,
-        patientPhone,
-        caregiverName,
-        caregiverPhone,
-        relationship,
-        photoUrl,
-        savePatientSetup,
-        selectPatient,
-        openSetupWizard,
-        closeSetupWizard,
-      }}
-    >
+    <PatientContext.Provider value={contextValue}>
       {children}
     </PatientContext.Provider>
   );

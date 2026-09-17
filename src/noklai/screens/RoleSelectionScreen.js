@@ -47,11 +47,19 @@ export default function RoleSelectionScreen() {
         <View style={styles.header}>
           <Text
             style={[
+              styles.brandTag,
+              { color: isDarkMode ? '#4ADE80' : '#15803D' },
+            ]}
+          >
+            NOKLAI
+          </Text>
+          <Text
+            style={[
               styles.title,
               { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
             ]}
           >
-            Who are you?
+            Welcome to NOKLAI
           </Text>
           <Text
             style={[
@@ -59,7 +67,7 @@ export default function RoleSelectionScreen() {
               { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
             ]}
           >
-            Choose your profile to continue.
+            A culturally familiar memory assistance platform for elderly people and their caregivers.
           </Text>
         </View>
 
@@ -67,7 +75,7 @@ export default function RoleSelectionScreen() {
         <View style={styles.cardsContainer}>
           {/* Card 1: Patient */}
           <TouchableOpacity
-            activeOpacity={0.82}
+            activeOpacity={0.85}
             onPress={() => selectRole('patient')}
             style={[
               styles.roleCard,
@@ -77,6 +85,8 @@ export default function RoleSelectionScreen() {
               },
               !isDarkMode && noklaiTheme.shadows.card,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="I am a Patient. Play memory games, talk with Noklai, and enjoy familiar stories"
           >
             <View style={[styles.avatarCircle, { backgroundColor: '#FEF3C7' }]}>
               <Text style={styles.avatarEmoji}>{patientAvatar}</Text>
@@ -90,28 +100,31 @@ export default function RoleSelectionScreen() {
                     { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
                   ]}
                 >
-                  {activePatientName || 'Patient'}
+                  I am a Patient
                 </Text>
                 <Ionicons
                   name="chevron-forward"
-                  size={22}
+                  size={24}
                   color={isDarkMode ? '#9CA3AF' : '#656F7D'}
                 />
               </View>
               <Text
                 style={[
                   styles.roleSubtitle,
-                  { color: isDarkMode ? '#9CA3AF' : '#656F7D' },
+                  { color: isDarkMode ? '#CBD5E1' : '#4B5563' },
                 ]}
               >
-                Patient • Play, remember & enjoy
+                Play memory games, talk with Noklai, and enjoy familiar stories
               </Text>
+              {activePatientName && activePatientName !== 'Patient' && (
+                <Text style={styles.activeProfileTag}>Profile: {activePatientName}</Text>
+              )}
             </View>
           </TouchableOpacity>
 
           {/* Card 2: Caregiver */}
           <TouchableOpacity
-            activeOpacity={0.82}
+            activeOpacity={0.85}
             onPress={() => selectRole('caregiver')}
             style={[
               styles.roleCard,
@@ -121,6 +134,8 @@ export default function RoleSelectionScreen() {
               },
               !isDarkMode && noklaiTheme.shadows.card,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="I am a Caregiver. View progress, check activity history, and support your loved one"
           >
             <View style={[styles.avatarCircle, { backgroundColor: '#EDE9FE' }]}>
               <Text style={styles.avatarEmoji}>{caregiverAvatar}</Text>
@@ -134,22 +149,25 @@ export default function RoleSelectionScreen() {
                     { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
                   ]}
                 >
-                  {caregiverName || 'Caregiver'}
+                  I am a Caregiver
                 </Text>
                 <Ionicons
                   name="chevron-forward"
-                  size={22}
+                  size={24}
                   color={isDarkMode ? '#9CA3AF' : '#656F7D'}
                 />
               </View>
               <Text
                 style={[
                   styles.roleSubtitle,
-                  { color: isDarkMode ? '#9CA3AF' : '#656F7D' },
+                  { color: isDarkMode ? '#CBD5E1' : '#4B5563' },
                 ]}
               >
-                Caregiver • Monitor, support & assist
+                View progress, check activity history, and support your loved one
               </Text>
+              {caregiverName && caregiverName !== 'Caregiver' && (
+                <Text style={styles.activeProfileTag}>Profile: {caregiverName}</Text>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -184,17 +202,30 @@ const styles = StyleSheet.create({
     marginLeft: -8,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 28,
+  },
+  brandTag: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 23,
+  },
+  activeProfileTag: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#16A34A',
+    marginTop: 6,
   },
   cardsContainer: {
     gap: 18,

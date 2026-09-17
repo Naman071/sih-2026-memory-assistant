@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePatient } from '../../context/PatientContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -54,13 +54,19 @@ export function NoklaiProvider({ children }) {
   const [patientGender, setPatientGender] = useState('female');     // 'female' | 'male'
   const [hasCompletedSetup, setHasCompletedSetup] = useState(false);
 
-  // Sync patientId when PatientContext loads from storage
+  const patientContextSyncedRef = useRef(false);
+
+  // Sync patientId once when PatientContext loads from storage without re-triggering loops
   useEffect(() => {
-    if (existingPatientId && existingPatientId !== activePatientId) {
-      setActivePatientId(existingPatientId);
-    }
-    if (existingPatientName && existingPatientName !== activePatientName && activePatientName === 'Patient') {
-      setActivePatientName(existingPatientName);
+    if (!patientContextSyncedRef.current) {
+      if (existingPatientId && existingPatientId !== 'P001' && existingPatientId !== activePatientId) {
+        setActivePatientId(existingPatientId);
+        patientContextSyncedRef.current = true;
+      }
+      if (existingPatientName && existingPatientName !== 'Patient' && existingPatientName !== activePatientName) {
+        setActivePatientName(existingPatientName);
+        patientContextSyncedRef.current = true;
+      }
     }
   }, [existingPatientId, existingPatientName, activePatientId, activePatientName]);
 
@@ -114,8 +120,13 @@ export function NoklaiProvider({ children }) {
   const [allSessions, setAllSessions] = useState([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
 
-  // Load saved credentials, role, and setup status
+  const hasInitializedRef = useRef(false);
+
+  // Load saved credentials, role, and setup status (runs once on mount)
   useEffect(() => {
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     async function initNoklai() {
       try {
         const [
@@ -145,12 +156,12 @@ export function NoklaiProvider({ children }) {
         if (savedPatientName) {
           setActivePatientName(savedPatientName);
           setPatients((prev) =>
-            prev.map((p) => (p.id === activePatientId ? {
+            prev.map((p) => ({
               ...p,
               name: savedPatientName,
               gender: savedPatientGender || p.gender,
               avatarText: (savedPatientGender || p.gender) === 'male' ? '👴' : '👵',
-            } : p))
+            }))
           );
         }
         if (savedPatientPhone) setPatientPhone(savedPatientPhone);
@@ -167,7 +178,7 @@ export function NoklaiProvider({ children }) {
       }
     }
     initNoklai();
-  }, [activePatientId, existingPatientName]);
+  }, []);
 
   // Save Caregiver & Patient Credentials
   const saveCredentials = useCallback(async ({
@@ -353,10 +364,10 @@ export function NoklaiProvider({ children }) {
           return Array.from(map.values());
         });
 
-        // Set active patient if current is default
-        if (!activePatientId || activePatientId === 'P001') {
+        // Set active patient if current is default and remote has different ID
+        if ((!activePatientId || activePatientId === 'P001') && remotePatients[0].patient_id && remotePatients[0].patient_id !== activePatientId) {
           setActivePatientId(remotePatients[0].patient_id);
-          setActivePatientName(remotePatients[0].name);
+          if (remotePatients[0].name) setActivePatientName(remotePatients[0].name);
         }
       }
     } catch (err) {
@@ -434,13 +445,19 @@ export function NoklaiProvider({ children }) {
     setAnalyticsData(null);
   }, []);
 
+  // Load real reminders and analytics whenever active patient changes (guarded)
   useEffect(() => {
+    if (!activePatientId) return;
     loadReminders();
     loadAnalytics();
+  }, [activePatientId]);
+
+  // Load linked patients when caregiver role or caregiver phone changes
+  useEffect(() => {
     if (role === 'caregiver' && caregiverPhone) {
       loadLinkedPatients(caregiverPhone);
     }
-  }, [loadReminders, loadAnalytics, loadLinkedPatients, role, caregiverPhone]);
+  }, [role, caregiverPhone]);
 
   const handleGameFinished = useCallback(() => {
     setActivePatientGame(null);
@@ -605,26 +622,56 @@ export function NoklaiProvider({ children }) {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
 
-    return allSessions.slice(0, 15).map((s) => {
+    return allSessions.slice(0, 25).map((s) => {
       const sTime = new Date(s.timestamp).getTime();
       let day = 'Earlier';
       if (sTime >= startOfToday) day = 'Today';
       else if (sTime >= startOfYesterday) day = 'Yesterday';
 
       let timeFormatted = '';
+      let formattedDate = '';
+      let fullDateTime = '';
       try {
-        timeFormatted = new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const d = new Date(s.timestamp);
+        formattedDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+        timeFormatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        fullDateTime = `${formattedDate} at ${timeFormatted}`;
       } catch (e) {
         timeFormatted = 'Recently';
+        fullDateTime = 'Recently';
       }
+
+      const durationSec = typeof s.durationSec === 'number' ? s.durationSec : (typeof s.duration === 'number' ? s.duration : null);
+      const durationMin = durationSec ? Math.floor(durationSec / 60) : 0;
+      const durationSecRem = durationSec ? Math.round(durationSec % 60) : 0;
+      const durationFormatted = durationSec !== null && durationSec > 0
+        ? durationMin > 0
+          ? `${durationMin} min ${durationSecRem} sec`
+          : `${durationSecRem} sec`
+        : null;
+
+      const accuracyVal = typeof s.accuracy === 'number' && !isNaN(s.accuracy)
+        ? Math.round(s.accuracy)
+        : null;
+      const status = s.metadata?.status || (s.completed !== false ? 'Completed' : 'Aborted');
 
       return {
         id: s.id,
         game: s.gameName || s.gameId || 'Brain Exercise',
+        gameId: s.gameId,
         time: timeFormatted,
         day,
-        score: typeof s.accuracy === 'number' ? `${Math.round(s.accuracy)}%` : `${s.score || 0}`,
-        icon: s.gameId?.includes('suh') ? 'musical-notes-outline' : s.gameId?.includes('dhop') ? 'football-outline' : 'game-controller-outline',
+        formattedDate,
+        fullDateTime,
+        status,
+        rawScore: typeof s.score === 'number' ? s.score : null,
+        score: typeof s.score === 'number' ? `${s.score} pts` : (accuracyVal !== null ? `${accuracyVal}%` : '--'),
+        rawAccuracy: accuracyVal,
+        accuracy: accuracyVal !== null ? `${accuracyVal}%` : null,
+        durationSec: durationSec || 0,
+        durationFormatted,
+        difficulty: s.difficulty || 'Normal',
+        icon: s.gameId?.includes('suh') ? 'musical-notes-outline' : s.gameId?.includes('dhop') ? 'football-outline' : s.gameId?.includes('ubi') ? 'grid-outline' : s.gameId?.includes('memory') ? 'book-outline' : 'game-controller-outline',
         color: '#5B409E',
       };
     });
@@ -648,65 +695,105 @@ export function NoklaiProvider({ children }) {
     setCurrentStep('launch');
   }, []);
 
+  const noklaiContextValue = useMemo(() => ({
+    currentStep,
+    setCurrentStep,
+    role,
+    setRole,
+    selectRole,
+    resetToRoleSelect,
+    resetToLaunch,
+    hasCompletedSetup,
+    caregiverName,
+    setCaregiverName,
+    caregiverPhone,
+    setCaregiverPhone,
+    caregiverGender,
+    setCaregiverGender,
+    caregiverAvatar,
+    activePatientId,
+    setActivePatientId,
+    activePatientName,
+    setActivePatientName,
+    patientPhone,
+    setPatientPhone,
+    patientGender,
+    setPatientGender,
+    patientAvatar,
+    saveCredentials,
+    patients,
+    activePatient,
+    addPatient,
+    aiModalVisible,
+    setAiModalVisible,
+    activeCaregiverSubScreen,
+    setActiveCaregiverSubScreen,
+    activePatientGame,
+    setActivePatientGame,
+    handleGameFinished,
+
+    // Real data
+    reminders,
+    loadingReminders,
+    addReminder,
+    deleteReminder,
+    toggleRoutineItem,
+    computedStats,
+    realGamePerformance,
+    realRecentActivity,
+    analyticsData,
+    isLoadingAnalytics,
+    loadAnalytics,
+    loadLinkedPatients,
+    linkPatientByInviteCode,
+    signOut,
+    allSessions,
+
+    isDarkMode,
+  }), [
+    currentStep,
+    role,
+    selectRole,
+    resetToRoleSelect,
+    resetToLaunch,
+    hasCompletedSetup,
+    caregiverName,
+    caregiverPhone,
+    caregiverGender,
+    caregiverAvatar,
+    activePatientId,
+    activePatientName,
+    patientPhone,
+    patientGender,
+    patientAvatar,
+    saveCredentials,
+    patients,
+    activePatient,
+    addPatient,
+    aiModalVisible,
+    activeCaregiverSubScreen,
+    activePatientGame,
+    handleGameFinished,
+    reminders,
+    loadingReminders,
+    addReminder,
+    deleteReminder,
+    toggleRoutineItem,
+    computedStats,
+    realGamePerformance,
+    realRecentActivity,
+    analyticsData,
+    isLoadingAnalytics,
+    loadAnalytics,
+    loadLinkedPatients,
+    linkPatientByInviteCode,
+    signOut,
+    allSessions,
+    isDarkMode,
+  ]);
+
   return (
-    <NoklaiContext.Provider
-      value={{
-        currentStep,
-        setCurrentStep,
-        role,
-        setRole,
-        selectRole,
-        resetToRoleSelect,
-        resetToLaunch,
-        hasCompletedSetup,
-        caregiverName,
-        setCaregiverName,
-        caregiverPhone,
-        setCaregiverPhone,
-        caregiverGender,
-        setCaregiverGender,
-        caregiverAvatar,
-        activePatientId,
-        setActivePatientId,
-        activePatientName,
-        setActivePatientName,
-        patientPhone,
-        setPatientPhone,
-        patientGender,
-        setPatientGender,
-        patientAvatar,
-        saveCredentials,
-        patients,
-        activePatient,
-        addPatient,
-        aiModalVisible,
-        setAiModalVisible,
-        activeCaregiverSubScreen,
-        setActiveCaregiverSubScreen,
-        activePatientGame,
-        setActivePatientGame,
-        handleGameFinished,
-
-        // Real data
-        reminders,
-        loadingReminders,
-        addReminder,
-        deleteReminder,
-        toggleRoutineItem,
-        computedStats,
-        realGamePerformance,
-        realRecentActivity,
-        analyticsData,
-        isLoadingAnalytics,
-        loadAnalytics,
-        loadLinkedPatients,
-        linkPatientByInviteCode,
-        signOut,
-        allSessions,
-
-        isDarkMode,
-      }}
-    >
+    <NoklaiContext.Provider value={noklaiContextValue}>
       {children}
     </NoklaiContext.Provider>
   );

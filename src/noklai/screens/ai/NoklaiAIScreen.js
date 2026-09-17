@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,17 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../../theme/noklaiTheme';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useNoklai } from '../../context/NoklaiContext';
-import { getAIResponse } from '../../../modules/aiData';
+import { getAIResponseAsync, getAIResponse } from '../../../modules/aiData';
+import { isGeminiConfigured } from '../../../services/GeminiService';
 
 export default function NoklaiAIScreen({ onClose }) {
   const { isDarkMode } = useTheme();
@@ -34,6 +38,7 @@ export default function NoklaiAIScreen({ onClose }) {
   const pName = activePatientName || 'Patient';
   const cName = caregiverName || 'Caregiver';
   const isHindi = currentLanguage === 'hi';
+  const hasGeminiKey = isGeminiConfigured();
 
   const defaultGreeting = isCaregiver
     ? (isHindi
@@ -42,6 +47,8 @@ export default function NoklaiAIScreen({ onClose }) {
     : (isHindi
         ? `नमस्ते ${pName} जी! मैं आपका नोकलाई साथी हूँ। आप आज कैसा महसूस कर रहे हैं? मैं आपको दवाइयों, दैनिक दिनचर्या, या पूर्वोत्तर की कहानियों में मदद कर सकता हूँ!`
         : `Hello ${pName}! I am your friendly Noklai companion. How are you feeling today? I can help you remember your daily routine, family stories, or play a game with you!`);
+
+  const storageKey = `@noklai_chat_history_v2_${activePatientId || 'default'}_${role}`;
 
   const [messages, setMessages] = useState([
     {
@@ -53,6 +60,67 @@ export default function NoklaiAIScreen({ onClose }) {
   ]);
 
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorInfo, setErrorInfo] = useState(null);
+  const flatListRef = useRef(null);
+
+  // Load chat history from persistent storage on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadSavedChat = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (raw && isMounted) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('Error reading saved chat history:', err);
+      }
+    };
+    loadSavedChat();
+    return () => {
+      isMounted = false;
+    };
+  }, [storageKey]);
+
+  // Save chat history to storage on update
+  const saveMessagesToStorage = async (newMessages) => {
+    try {
+      await AsyncStorage.setItem(storageKey, JSON.stringify(newMessages));
+    } catch (err) {
+      console.warn('Error saving chat history:', err);
+    }
+  };
+
+  const handleClearChat = () => {
+    Alert.alert(
+      'Clear Conversation',
+      'Would you like to reset this conversation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            const initial = [
+              {
+                id: `msg-${Date.now()}`,
+                sender: 'ai',
+                text: defaultGreeting,
+                timestamp: 'Just now',
+              },
+            ];
+            setMessages(initial);
+            setErrorInfo(null);
+            await saveMessagesToStorage(initial);
+          },
+        },
+      ]
+    );
+  };
 
   const quickChips = isCaregiver
     ? (isHindi
@@ -64,27 +132,33 @@ export default function NoklaiAIScreen({ onClose }) {
           ]
         : [
             `How is ${pName} doing?`,
-            'Suggest next brain exercise',
+            'Suggest supportive activities',
             'Explain Cognitive Vitality Index',
             'What is the schedule today?',
           ])
     : (isHindi
         ? [
-            'मेरी दवाइयों का समय बताओ',
-            'आज का मेरा शेड्यूल क्या है?',
+            'मेरा नाम ध्रुव है',
+            'मेरा नाम क्या है?',
+            'मुझे थकान लग रही है',
+            'मैं क्या खेल सकता हूँ?',
+            'एक चुटकुला सुनाओ',
             'पूर्वोत्तर की कोई कहानी सुनाओ',
-            'कोई खेल खेलना है',
           ]
         : [
-            'What is my schedule today?',
-            'Remind me about my medicine',
+            'My name is Dhruv',
+            'What is my name?',
+            'I feel tired',
+            'What can I play?',
+            'Tell me a joke',
             'Tell me a Northeast story',
-            'Suggest a brain exercise',
           ]);
 
-  const handleSend = (textToSend) => {
+  const handleSend = async (textToSend) => {
     const query = (textToSend || input).trim();
-    if (!query) return;
+    if (!query || isLoading) return;
+
+    setErrorInfo(null);
 
     const userMessage = {
       id: `user-${Date.now()}`,
@@ -93,24 +167,62 @@ export default function NoklaiAIScreen({ onClose }) {
       timestamp: 'Just now',
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     setInput('');
+    setIsLoading(true);
 
-    // Generate response using comprehensive multi-lingual context engine
+    // Scroll to latest message
     setTimeout(() => {
-      let reply = '';
-      try {
-        reply = getAIResponse(query, {
-          patientId: activePatientId || 'P001',
-          patientName: pName,
-          caregiverName: cName,
-          role,
-          reminders,
-          analyticsData,
-          language: currentLanguage,
-        });
-      } catch (e) {
-        reply = isCaregiver
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+    // Prepare multi-turn conversation history for Gemini
+    const priorHistory = messages.map((m) => ({
+      sender: m.sender,
+      text: m.text,
+    }));
+
+    // In-session learned patient name extraction across conversation
+    let learnedName = null;
+    for (const m of nextMessages) {
+      if (m.sender === 'user') {
+        const match = m.text.match(/(?:my name is|mera naam hai|mera naam|i am called|call me|main hoon)\s+([A-Za-z\u0900-\u097F\u0980-\u09FF]+)/i);
+        if (match && !m.text.toLowerCase().includes('what is') && !m.text.toLowerCase().includes('kya')) {
+          const raw = match[1].trim();
+          learnedName = raw.charAt(0).toUpperCase() + raw.slice(1);
+        }
+      }
+    }
+
+    const context = {
+      patientId: activePatientId || 'P001',
+      patientName: learnedName || pName,
+      learnedName: learnedName,
+      caregiverName: cName,
+      role,
+      reminders,
+      analyticsData,
+      language: currentLanguage,
+    };
+
+    try {
+      const result = await getAIResponseAsync(query, context, priorHistory);
+      let replyText = '';
+
+      if (result.success && result.text) {
+        replyText = result.text;
+      } else if (result.fallback) {
+        replyText = result.fallback;
+        if (result.error && result.error !== 'NO_API_KEY') {
+          setErrorInfo({
+            error: result.error,
+            message: result.message || 'Gemini encountered a temporary issue.',
+            retryQuery: query,
+          });
+        }
+      } else {
+        replyText = isCaregiver
           ? `I'm tracking ${pName}'s daily routines and memory engagement. You can ask me about game scores (CVI), schedules, or care recommendations.`
           : `I'm here with you always. Take your time, enjoy today's moments, and let me know if you need any reminders!`;
       }
@@ -118,11 +230,27 @@ export default function NoklaiAIScreen({ onClose }) {
       const aiMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
-        text: reply,
+        text: replyText,
         timestamp: 'Just now',
+        source: result.source || 'gemini',
       };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 450);
+
+      const finalMessages = [...nextMessages, aiMessage];
+      setMessages(finalMessages);
+      await saveMessagesToStorage(finalMessages);
+    } catch (err) {
+      console.warn('AI send exception:', err);
+      setErrorInfo({
+        error: 'EXCEPTION',
+        message: 'Could not connect to Noklai AI. Please try again.',
+        retryQuery: query,
+      });
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
   };
 
   const handleClose = () => {
@@ -176,23 +304,55 @@ export default function NoklaiAIScreen({ onClose }) {
                 Noklai AI Assistant
               </Text>
               <Text style={styles.headerSub}>
-                {isCaregiver ? 'Caregiver Companion & Analytics' : 'Friendly Memory Companion'}
+                {isCaregiver ? 'Caregiver Companion' : 'Friendly Memory Companion'} • {hasGeminiKey ? 'Gemini 2.0 Live' : 'Offline Mode'}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            onPress={handleClose}
-            style={styles.closeButton}
-            accessibilityLabel="Close AI Assistant"
-          >
-            <Ionicons
-              name="close-circle"
-              size={28}
-              color={isDarkMode ? '#9CA3AF' : '#656F7D'}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleClearChat}
+              style={styles.headerActionBtn}
+              accessibilityLabel="Reset conversation"
+            >
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={isDarkMode ? '#9CA3AF' : '#656F7D'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleClose}
+              style={styles.closeButton}
+              accessibilityLabel="Close AI Assistant"
+            >
+              <Ionicons
+                name="close-circle"
+                size={28}
+                color={isDarkMode ? '#9CA3AF' : '#656F7D'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Error Banner with Retry */}
+        {errorInfo && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={18} color="#DC2626" style={{ marginRight: 8 }} />
+            <Text style={styles.errorText} numberOfLines={2}>
+              {errorInfo.message}
+            </Text>
+            {errorInfo.retryQuery ? (
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => handleSend(errorInfo.retryQuery)}
+              >
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
 
         {/* Quick Chips Row */}
         <View style={styles.chipsContainer}>
@@ -204,11 +364,13 @@ export default function NoklaiAIScreen({ onClose }) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => handleSend(item)}
+                disabled={isLoading}
                 style={[
                   styles.chip,
                   {
                     backgroundColor: isDarkMode ? '#28243D' : '#F3E8FF',
                     borderColor: isDarkMode ? '#47396B' : '#E9D5FF',
+                    opacity: isLoading ? 0.6 : 1,
                   },
                 ]}
               >
@@ -222,9 +384,11 @@ export default function NoklaiAIScreen({ onClose }) {
 
         {/* Chat Messages */}
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => {
             const isAi = item.sender === 'ai';
             return (
@@ -279,6 +443,43 @@ export default function NoklaiAIScreen({ onClose }) {
               </View>
             );
           }}
+          ListFooterComponent={
+            isLoading ? (
+              <View style={[styles.messageRow, styles.aiMessageRow, { opacity: 0.9, marginTop: 4 }]}>
+                <View style={styles.aiAvatar}>
+                  <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+                </View>
+                <View
+                  style={[
+                    styles.bubble,
+                    styles.aiBubble,
+                    {
+                      backgroundColor: isDarkMode ? '#1E2430' : '#FFFFFF',
+                      borderColor: isDarkMode ? '#2B3545' : '#E5E7EB',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                    },
+                  ]}
+                >
+                  <ActivityIndicator size="small" color={noklaiTheme.colors.primary} style={{ marginRight: 10 }} />
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      {
+                        color: isDarkMode ? '#9CA3AF' : '#656F7D',
+                        fontStyle: 'italic',
+                        fontSize: 13,
+                      },
+                    ]}
+                  >
+                    {isHindi ? 'नोकलाई सोच रहे हैं...' : 'Noklai is thinking...'}
+                  </Text>
+                </View>
+              </View>
+            ) : null
+          }
         />
 
         {/* Input Bar */}
@@ -300,6 +501,7 @@ export default function NoklaiAIScreen({ onClose }) {
             placeholderTextColor="#9CA3AF"
             value={input}
             onChangeText={setInput}
+            editable={!isLoading}
             style={[
               styles.input,
               { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
@@ -309,11 +511,11 @@ export default function NoklaiAIScreen({ onClose }) {
 
           <TouchableOpacity
             onPress={() => handleSend(input)}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isLoading}
             style={[
               styles.sendButton,
               {
-                backgroundColor: input.trim()
+                backgroundColor: input.trim() && !isLoading
                   ? isCaregiver
                     ? noklaiTheme.colors.primary
                     : noklaiTheme.colors.patientGreen
@@ -321,7 +523,11 @@ export default function NoklaiAIScreen({ onClose }) {
               },
             ]}
           >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="send" size={18} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -446,6 +652,43 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionBtn: {
+    padding: 6,
+    borderRadius: noklaiTheme.radii.full,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FECACA',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    flex: 1,
+    color: '#B91C1C',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  retryBtn: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: noklaiTheme.radii.md,
+    marginLeft: 10,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

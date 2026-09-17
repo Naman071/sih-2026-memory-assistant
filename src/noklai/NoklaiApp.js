@@ -43,6 +43,7 @@ function NoklaiShell() {
     setAiModalVisible,
     activeCaregiverSubScreen,
     setActiveCaregiverSubScreen,
+    setActivePatientGame,
   } = useNoklai();
 
   // Active Bottom Tab
@@ -118,6 +119,12 @@ function NoklaiShell() {
         return (
           <PatientHomeScreen
             onNavigateToGames={() => setActivePatientTab('games')}
+            onContinueActivity={(gameId) => {
+              if (setActivePatientGame) setActivePatientGame(gameId || 'suhTahLam');
+              setActivePatientTab('games');
+            }}
+            onOpenAI={() => setAiModalVisible(true)}
+            onNavigateToProgress={() => setActivePatientTab('insights')}
           />
         );
       case 'games':
@@ -136,6 +143,12 @@ function NoklaiShell() {
         return (
           <PatientHomeScreen
             onNavigateToGames={() => setActivePatientTab('games')}
+            onContinueActivity={(gameId) => {
+              if (setActivePatientGame) setActivePatientGame(gameId || 'suhTahLam');
+              setActivePatientTab('games');
+            }}
+            onOpenAI={() => setAiModalVisible(true)}
+            onNavigateToProgress={() => setActivePatientTab('insights')}
           />
         );
     }
