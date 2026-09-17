@@ -18,6 +18,7 @@ import QuoteCard from '../../components/QuoteCard';
 export default function InsightsScreen({ onBack }) {
   const { isDarkMode } = useTheme();
   const {
+    role,
     activePatientName,
     caregiverName,
     setActiveCaregiverSubScreen,
@@ -26,13 +27,14 @@ export default function InsightsScreen({ onBack }) {
     analyticsData,
   } = useNoklai();
 
+  const isPatient = role === 'patient';
   const [shared, setShared] = useState(false);
 
   const hasActivity = computedStats.totalPlayTimeMinutes > 0 || (computedStats.gamesToday > 0);
 
   const handleShareReport = async () => {
     try {
-      const summary = `Noklai Memory Care Report for ${activePatientName}\nCaregiver: ${caregiverName}\n- Accuracy: ${computedStats.avgAccuracy !== null ? `${computedStats.avgAccuracy}%` : 'Awaiting gameplay'}\n- Weekly Delta: ${computedStats.accuracyWeeklyDelta}\n- Active Days: ${computedStats.daysActiveThisWeek} days\n- Play Time: ${computedStats.totalPlayTimeMinutes} minutes\n\nClinical Summary: ${hasActivity ? 'Active routine maintenance and verified game sessions recorded.' : 'Awaiting initial game calibration.'}\nNotice: Non-clinical supportive cognitive tool.`;
+      const summary = `Noklai Memory Care Report for ${activePatientName}\nCaregiver: ${caregiverName}\n- Accuracy: ${computedStats.avgAccuracy !== null ? `${computedStats.avgAccuracy}%` : 'Awaiting gameplay'}\n- Weekly Delta: ${computedStats.accuracyWeeklyDelta}\n- Active Days: ${computedStats.daysActiveThisWeek} days\n- Play Time: ${computedStats.totalPlayTimeMinutes} minutes\n\nSummary: ${hasActivity ? 'Active routine maintenance and verified game sessions recorded.' : 'Awaiting initial game calibration.'}\nNotice: Non-clinical supportive cognitive tool.`;
       await Share.share({
         message: summary,
         title: `${activePatientName}'s Cognitive Summary`,
@@ -56,7 +58,7 @@ export default function InsightsScreen({ onBack }) {
       ]}
     >
       <NoklaiHeader
-        showBack
+        showBack={Boolean(onBack)}
         onBack={onBack || (() => setActiveCaregiverSubScreen(null))}
         title="Insights"
       />
@@ -78,8 +80,8 @@ export default function InsightsScreen({ onBack }) {
             ]}
           >
             {hasActivity
-              ? `Authentic observations based on ${activePatientName}'s gameplay.`
-              : `Suggestions to start ${activePatientName}'s cognitive routine.`}
+              ? (isPatient ? `Observations based on your recent brain game sessions.` : `Authentic observations based on ${activePatientName}'s gameplay.`)
+              : (isPatient ? `Helpful suggestions for your daily memory routine.` : `Suggestions to start ${activePatientName}'s cognitive routine.`)}
           </Text>
         </View>
 
@@ -100,12 +102,16 @@ export default function InsightsScreen({ onBack }) {
             </View>
             <View style={styles.cardContent}>
               <Text style={[styles.cardTitle, { color: isDarkMode ? '#86EFAC' : '#14532D' }]}>
-                {hasActivity ? `${activePatientName} is actively tracking!` : `Welcome, ${caregiverName}!`}
+                {hasActivity
+                  ? (isPatient ? `Great work, ${activePatientName}!` : `${activePatientName} is actively tracking!`)
+                  : (isPatient ? `Welcome, ${activePatientName}!` : `Welcome, ${caregiverName}!`)}
               </Text>
               <Text style={[styles.cardMessage, { color: isDarkMode ? '#D1FAE5' : '#166534' }]}>
                 {hasActivity
-                  ? `Recorded ${computedStats.totalPlayTimeMinutes} minutes of gameplay. Average accuracy is ${computedStats.avgAccuracy ?? 0}%.`
-                  : `Starting with 10-15 minutes of gentle cultural games daily helps establish cognitive stimulation.`}
+                  ? (isPatient
+                      ? `You played ${computedStats.totalPlayTimeMinutes} minutes of brain games with an average accuracy of ${computedStats.avgAccuracy ?? 0}%.`
+                      : `Recorded ${computedStats.totalPlayTimeMinutes} minutes of gameplay. Average accuracy is ${computedStats.avgAccuracy ?? 0}%.`)
+                  : `Starting with 10-15 minutes of gentle cultural games daily helps keep your mind active and healthy.`}
               </Text>
             </View>
           </View>
@@ -169,7 +175,7 @@ export default function InsightsScreen({ onBack }) {
           />
 
           <NoklaiButton
-            title={shared ? 'Report Copied / Shared!' : 'Share Summary with Doctor'}
+            title={shared ? 'Report Copied / Shared!' : (isPatient ? 'Share Progress with Family' : 'Share Summary with Doctor')}
             variant="outline"
             icon="share-outline"
             size="md"

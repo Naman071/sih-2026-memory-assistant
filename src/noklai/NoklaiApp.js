@@ -46,7 +46,7 @@ function NoklaiShell() {
 
   // Active Bottom Tab
   const [activeCaregiverTab, setActiveCaregiverTab] = useState('home'); // 'home' | 'activity' | 'ai' | 'insights' | 'settings'
-  const [activePatientTab, setActivePatientTab] = useState('home');     // 'home' | 'games' | 'ai' | 'settings'
+  const [activePatientTab, setActivePatientTab] = useState('home');     // 'home' | 'games' | 'ai' | 'insights' | 'settings'
 
   // Step 1: Launch Splash
   if (currentStep === 'launch') {
@@ -123,6 +123,8 @@ function NoklaiShell() {
         return <PatientGamesScreen onBack={() => setActivePatientTab('home')} />;
       case 'ai':
         return <NoklaiAIScreen onClose={() => setActivePatientTab('home')} />;
+      case 'insights':
+        return <InsightsScreen />;
       case 'settings':
         return <CaregiverSettingsScreen />;
       default:
@@ -144,11 +146,12 @@ function NoklaiShell() {
     { id: 'settings', label: 'Settings', icon: 'person', iconOutline: 'person-outline' },
   ];
 
-  // Removed 'memories' from patientTabs as requested
+  // 5 tabs with Noklai AI placed exactly in the middle (index 2)
   const patientTabs = [
     { id: 'home', label: 'Home', icon: 'home', iconOutline: 'home-outline' },
     { id: 'games', label: 'Games', icon: 'game-controller', iconOutline: 'game-controller-outline' },
     { id: 'ai', label: 'Noklai AI', icon: 'sparkles', isSpecial: true },
+    { id: 'insights', label: 'Insights', icon: 'bulb', iconOutline: 'bulb-outline' },
     { id: 'settings', label: 'Settings', icon: 'person', iconOutline: 'person-outline' },
   ];
 
