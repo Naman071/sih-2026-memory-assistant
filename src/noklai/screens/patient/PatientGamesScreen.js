@@ -23,7 +23,7 @@ import MemoryStoriesGame from '../../../games/MemoryStoriesGame';
 
 export default function PatientGamesScreen({ onBack }) {
   const { isDarkMode } = useTheme();
-  const { activePatientGame, setActivePatientGame, handleGameFinished } = useNoklai();
+  const { activePatientGame, setActivePatientGame, handleGameFinished, activePatientId } = useNoklai();
 
   // Listen to Android hardware back button when a game is active
   useEffect(() => {
@@ -98,6 +98,7 @@ export default function PatientGamesScreen({ onBack }) {
 
   // If a game is active, render that interactive game with BOTH in-game onExit and persistent top bar back button!
   if (activePatientGame) {
+    const currentPatientId = activePatientId || 'P001';
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#111827' : '#FFFFFF' }}>
         <View style={styles.gameExitHeader}>
@@ -114,11 +115,11 @@ export default function PatientGamesScreen({ onBack }) {
         </View>
 
         <View style={{ flex: 1 }}>
-          {activePatientGame === 'suhTahLam' && <SuhTahLamGame onExit={handleExitGame} />}
-          {activePatientGame === 'ubilakapki' && <UbilakapkiGame onExit={handleExitGame} />}
-          {activePatientGame === 'northeast' && <NortheastMemoryGame onExit={handleExitGame} />}
-          {activePatientGame === 'dhopkhel' && <DhopkhelGame onExit={handleExitGame} />}
-          {activePatientGame === 'stories' && <MemoryStoriesGame onExit={handleExitGame} />}
+          {activePatientGame === 'suhTahLam' && <SuhTahLamGame onExit={handleExitGame} patientId={currentPatientId} />}
+          {activePatientGame === 'ubilakapki' && <UbilakapkiGame onExit={handleExitGame} patientId={currentPatientId} />}
+          {activePatientGame === 'northeast' && <NortheastMemoryGame onExit={handleExitGame} patientId={currentPatientId} />}
+          {activePatientGame === 'dhopkhel' && <DhopkhelGame onExit={handleExitGame} patientId={currentPatientId} />}
+          {activePatientGame === 'stories' && <MemoryStoriesGame onExit={handleExitGame} patientId={currentPatientId} />}
         </View>
       </SafeAreaView>
     );

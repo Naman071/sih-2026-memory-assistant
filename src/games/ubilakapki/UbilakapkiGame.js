@@ -49,11 +49,11 @@ const SCREENS = {
   RESULT: 'result',
 };
 
-export default function UbilakapkiGame({ onExit }) {
+export default function UbilakapkiGame({ onExit, patientId: propPatientId }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
   const { currentPatientId, patientId } = usePatient?.() || {};
-  const activePlayerId = currentPatientId || patientId || 'P001';
+  const activePlayerId = propPatientId || currentPatientId || patientId || 'P001';
 
   // Centralized Adaptive Performance Tracker
   const trackerRef = useRef(null);

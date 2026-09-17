@@ -407,11 +407,11 @@ function VoiceCaption({ text, enabled = true, contrast = 'normal', accessibility
 /* -------------------------------------------------------------
    Main DhopkhelGame Component
 ------------------------------------------------------------- */
-export default function DhopkhelGame({ onExit }) {
+export default function DhopkhelGame({ onExit, patientId: propPatientId }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
-  const { currentPatientId, patientId } = usePatient();
-  const activePlayerId = currentPatientId || patientId || 'P001';
+  const { currentPatientId, patientId } = usePatient?.() || {};
+  const activePlayerId = propPatientId || currentPatientId || patientId || 'P001';
 
   // Navigation screen
   const [screen, setScreen] = useState(SCREENS.WELCOME);

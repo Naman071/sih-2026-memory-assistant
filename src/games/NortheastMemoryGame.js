@@ -148,6 +148,7 @@ export default function NortheastMemoryGame({
   onFinish,
   onComplete,
   onExit,
+  patientId: propPatientId,
 }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -157,10 +158,11 @@ export default function NortheastMemoryGame({
     if (lvl === 'Medium') return t('games.northeastGame.mediumLabel') || 'Medium (20s)';
     return t('games.northeastGame.hardLabel') || 'Hard (10s)';
   };
-  const { patientId } = usePatient();
+  const { patientId } = usePatient?.() || {};
 
   // Validate patientId - fallback to P001 for seamless play
-  const activePatientId = patientId && isValidId(patientId) ? patientId : 'P001';
+  const candidateId = propPatientId || patientId;
+  const activePatientId = candidateId && isValidId(candidateId) ? candidateId : 'P001';
 
   const handleExit = useCallback(() => {
     onExit?.();

@@ -59,12 +59,12 @@ export const GAME_STEPS = {
   RESULT: 'RESULT',
 };
 
-export default function SuhTahLamGame({ onExit }) {
+export default function SuhTahLamGame({ onExit, patientId: propPatientId }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
   const { currentPatientId, patientId } = usePatient?.() || {};
   // Safe fallback to P001 only if context is unconfigured
-  const effectivePlayerId = patientId || currentPatientId || 'P001';
+  const effectivePlayerId = propPatientId || patientId || currentPatientId || 'P001';
 
   const [currentStep, setCurrentStep] = useState(GAME_STEPS.START);
   const [currentDifficulty, setCurrentDifficulty] = useState('easy');

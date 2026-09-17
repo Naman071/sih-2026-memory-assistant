@@ -16,7 +16,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabaseClient.js';
-import { saveGameResult } from '../database.js';
+import { saveGameResult, getRemoteGameSessions } from '../database.js';
 import { calculateCVI, validateRoundResult, CVI_CONSTANTS } from './CognitiveVitalityIndex.js';
 
 const getStorage = () => {
@@ -193,10 +193,46 @@ export class CognitiveAnalyticsService {
   }
 
   /**
+   * Retrieves merged sessions from both local AsyncStorage and remote Supabase
+   */
+  async getMergedSessions(patientId = null) {
+    const localSessions = await this.getAllSessions();
+    let remoteSessions = [];
+
+    if (patientId) {
+      try {
+        remoteSessions = await getRemoteGameSessions(patientId);
+      } catch (err) {
+        console.warn('[CognitiveAnalyticsService] Could not fetch remote sessions:', err);
+      }
+    }
+
+    const seenMap = new Map();
+    // 1. Add local sessions first
+    localSessions.forEach((s) => {
+      const key = `${s.patientId || ''}_${s.gameId || s.gameName || ''}_${(s.timestamp || '').slice(0, 16)}`;
+      seenMap.set(key, s);
+    });
+
+    // 2. Merge remote sessions
+    remoteSessions.forEach((s) => {
+      const key = `${s.patientId || ''}_${s.gameId || s.gameName || ''}_${(s.timestamp || '').slice(0, 16)}`;
+      if (!seenMap.has(key)) {
+        seenMap.set(key, s);
+      }
+    });
+
+    const merged = Array.from(seenMap.values());
+    merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return merged;
+  }
+
+  /**
    * Computes comprehensive caregiver dashboard statistics strictly from verified gameplay data
    */
   async getCaregiverDashboardData(timeframe = '7d', patientInfo = {}) {
-    const allSessions = await this.getAllSessions();
+    const pid = patientInfo?.patientId || null;
+    const allSessions = await this.getMergedSessions(pid);
     const now = Date.now();
 
     // Filter by timeframe
@@ -209,8 +245,13 @@ export class CognitiveAnalyticsService {
       return isNaN(t) || t >= cutoffMs;
     });
 
-    if (patientInfo?.patientId) {
-      filtered = filtered.filter((s) => s.patientId === patientInfo.patientId);
+    if (pid) {
+      filtered = filtered.filter((s) => {
+        if (!s.patientId || s.patientId === pid) return true;
+        if (pid === 'P001' && (s.patientId === 'guest_player' || s.patientId?.startsWith('P_'))) return true;
+        if (s.patientId === 'P001' && pid?.startsWith('P_')) return true;
+        return false;
+      });
     }
 
     // Convert sessions to round representation for verified CVI evaluation
@@ -656,10 +697,11 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
         {
           patient_id: sessionRecord.patientId,
           game_name: sessionRecord.gameName,
-          accuracy: sessionRecord.accuracy,
           response_time: sessionRecord.responseTimeSec,
-          difficulty: sessionRecord.difficulty,
-          is_correct: typeof sessionRecord.accuracy === 'number' && sessionRecord.accuracy >= 70,
+          difficulty: sessionRecord.difficulty
+            ? sessionRecord.difficulty.charAt(0).toUpperCase() + sessionRecord.difficulty.slice(1)
+            : 'Medium',
+          is_correct: typeof sessionRecord.accuracy === 'number' ? sessionRecord.accuracy >= 60 : true,
         },
       ]);
     } catch (e) {

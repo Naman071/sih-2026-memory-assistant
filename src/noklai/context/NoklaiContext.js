@@ -4,7 +4,13 @@ import { usePatient } from '../../context/PatientContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { cognitiveAnalytics } from '../../modules/performance/CognitiveAnalyticsService';
-import { getReminders } from '../../modules/database';
+import {
+  getReminders,
+  getPatientByCode,
+  getPatientsByCaregiverPhone,
+  linkPatientToCaregiver,
+  savePatientProfile,
+} from '../../modules/database';
 import { supabase } from '../../modules/supabaseClient';
 
 const NoklaiContext = createContext();
@@ -47,6 +53,16 @@ export function NoklaiProvider({ children }) {
   const [patientPhone, setPatientPhone] = useState(existingPatientPhone || '');
   const [patientGender, setPatientGender] = useState('female');     // 'female' | 'male'
   const [hasCompletedSetup, setHasCompletedSetup] = useState(false);
+
+  // Sync patientId when PatientContext loads from storage
+  useEffect(() => {
+    if (existingPatientId && existingPatientId !== activePatientId) {
+      setActivePatientId(existingPatientId);
+    }
+    if (existingPatientName && existingPatientName !== activePatientName && activePatientName === 'Patient') {
+      setActivePatientName(existingPatientName);
+    }
+  }, [existingPatientId, existingPatientName, activePatientId, activePatientName]);
 
   const caregiverAvatar = caregiverGender === 'male' ? '👨' : '👩';
   const patientAvatar = patientGender === 'male' ? '👴' : '👵';
@@ -202,6 +218,7 @@ export function NoklaiProvider({ children }) {
     if (savePatientSetup) {
       try {
         await savePatientSetup({
+          patientId: activePatientId || existingPatientId || 'P001',
           caregiverName: newCaregiverName,
           caregiverPhone: newCaregiverPhone || '',
           patientName: newPatientName,
@@ -211,7 +228,20 @@ export function NoklaiProvider({ children }) {
         // Continue safely offline
       }
     }
-  }, [activePatientId, savePatientSetup]);
+
+    // Sync to Supabase patients table
+    try {
+      await savePatientProfile({
+        patient_id: activePatientId || existingPatientId || 'P001',
+        name: newPatientName,
+        caregiver_phone: newCaregiverPhone || null,
+        patient_phone: newPatientPhone || null,
+        gender: patGender,
+      });
+    } catch (e) {
+      // Continue safely offline
+    }
+  }, [activePatientId, existingPatientId, savePatientSetup]);
 
   // Load REAL Reminders
   const loadReminders = useCallback(async () => {
@@ -263,7 +293,7 @@ export function NoklaiProvider({ children }) {
     setIsLoadingAnalytics(true);
     try {
       const patientInfo = {
-        patientId: activePatientId,
+        patientId: activePatientId || 'P001',
         patientName: activePatientName,
         patientAge: existingPatientAge || '72',
         caregiverName,
@@ -272,13 +302,18 @@ export function NoklaiProvider({ children }) {
 
       const [dashboard, sessions] = await Promise.all([
         cognitiveAnalytics.getCaregiverDashboardData('7d', patientInfo),
-        cognitiveAnalytics.getAllSessions(),
+        cognitiveAnalytics.getMergedSessions(activePatientId || 'P001'),
       ]);
 
       setAnalyticsData(dashboard);
-      const patientSessions = (sessions || []).filter(
-        (s) => !s.patientId || s.patientId === activePatientId
-      );
+      const effectiveId = activePatientId || 'P001';
+      const patientSessions = (sessions || []).filter((s) => {
+        if (!s.patientId) return true;
+        if (s.patientId === effectiveId) return true;
+        if (effectiveId === 'P001' && (s.patientId === 'guest_player' || s.patientId?.startsWith('P_'))) return true;
+        if (s.patientId === 'P001' && effectiveId?.startsWith('P_')) return true;
+        return false;
+      });
       setAllSessions(patientSessions.reverse());
     } catch (err) {
       console.warn('Error loading real cognitive analytics:', err);
@@ -287,14 +322,132 @@ export function NoklaiProvider({ children }) {
     }
   }, [activePatientId, activePatientName, caregiverName, existingPatientAge, existingRelationship]);
 
+  // Load Linked Patients from Supabase based on caregiver's phone
+  const loadLinkedPatients = useCallback(async (cgPhone = null) => {
+    const targetPhone = cgPhone || caregiverPhone;
+    if (!targetPhone) return;
+
+    try {
+      const remotePatients = await getPatientsByCaregiverPhone(targetPhone);
+      if (Array.isArray(remotePatients) && remotePatients.length > 0) {
+        setPatients((prev) => {
+          const map = new Map();
+          prev.forEach((p) => map.set(p.id, p));
+          remotePatients.forEach((rp) => {
+            const isMale = (rp.gender || '').toLowerCase() === 'male';
+            map.set(rp.patient_id, {
+              id: rp.patient_id,
+              name: rp.name || 'Loved One',
+              age: rp.age ? String(rp.age) : '72',
+              gender: rp.gender || 'female',
+              connectedSince: rp.created_at
+                ? new Date(rp.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : 'Recent',
+              activeToday: true,
+              relation: 'Loved One',
+              status: 'Connected via phone',
+              avatarText: isMale ? '👴' : '👵',
+              caregiverPhone: rp.caregiver_phone,
+            });
+          });
+          return Array.from(map.values());
+        });
+
+        // Set active patient if current is default
+        if (!activePatientId || activePatientId === 'P001') {
+          setActivePatientId(remotePatients[0].patient_id);
+          setActivePatientName(remotePatients[0].name);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load linked patients from Supabase:', err);
+    }
+  }, [caregiverPhone, activePatientId]);
+
+  // Link a Patient by Invite Code (e.g. "P001" or "P_1789648234497")
+  const linkPatientByInviteCode = useCallback(async (inviteCode) => {
+    if (!inviteCode || !inviteCode.trim()) {
+      return { success: false, message: 'Please enter a valid patient connection code.' };
+    }
+
+    try {
+      const cleanCode = inviteCode.trim();
+      const patientData = await getPatientByCode(cleanCode);
+
+      if (!patientData) {
+        return {
+          success: false,
+          message: `No patient found with code "${cleanCode}". Please verify the code on the elder's screen.`,
+        };
+      }
+
+      // Found patient! Link with current caregiver in Supabase
+      if (caregiverPhone) {
+        await linkPatientToCaregiver(patientData.patient_id, caregiverPhone, caregiverName);
+      }
+
+      const isMale = (patientData.gender || '').toLowerCase() === 'male';
+      const formatted = {
+        id: patientData.patient_id,
+        name: patientData.name || 'Loved One',
+        age: patientData.age ? String(patientData.age) : '72',
+        gender: patientData.gender || 'female',
+        connectedSince: 'Today',
+        activeToday: true,
+        relation: 'Loved One',
+        status: 'Linked via code',
+        avatarText: isMale ? '👴' : '👵',
+        caregiverPhone: caregiverPhone || patientData.caregiver_phone,
+      };
+
+      setPatients((prev) => {
+        const filtered = prev.filter((p) => p.id !== formatted.id);
+        return [formatted, ...filtered];
+      });
+
+      setActivePatientId(formatted.id);
+      setActivePatientName(formatted.name);
+
+      // Force refresh analytics
+      setTimeout(() => {
+        loadAnalytics();
+      }, 200);
+
+      return { success: true, patient: formatted };
+    } catch (err) {
+      console.warn('linkPatientByInviteCode error:', err);
+      return { success: false, message: 'Connection failed. Please check network.' };
+    }
+  }, [caregiverPhone, caregiverName, loadAnalytics]);
+
+  // Sign out cleanly to isolate user sessions
+  const signOut = useCallback(async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.CURRENT_ROLE,
+      ]);
+    } catch (e) {}
+    setRole(null);
+    setCurrentStep('launch');
+    setActiveCaregiverSubScreen(null);
+    setAllSessions([]);
+    setAnalyticsData(null);
+  }, []);
+
   useEffect(() => {
     loadReminders();
     loadAnalytics();
-  }, [loadReminders, loadAnalytics]);
+    if (role === 'caregiver' && caregiverPhone) {
+      loadLinkedPatients(caregiverPhone);
+    }
+  }, [loadReminders, loadAnalytics, loadLinkedPatients, role, caregiverPhone]);
 
   const handleGameFinished = useCallback(() => {
     setActivePatientGame(null);
     loadAnalytics();
+    setTimeout(() => {
+      loadAnalytics();
+    }, 400);
   }, [loadAnalytics]);
 
   const toggleRoutineItem = useCallback(async (itemId) => {
@@ -546,6 +699,10 @@ export function NoklaiProvider({ children }) {
         analyticsData,
         isLoadingAnalytics,
         loadAnalytics,
+        loadLinkedPatients,
+        linkPatientByInviteCode,
+        signOut,
+        allSessions,
 
         isDarkMode,
       }}

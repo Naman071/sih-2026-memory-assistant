@@ -32,6 +32,7 @@ export default function CaregiverSettingsScreen() {
     setCurrentStep,
     resetToLaunch,
     resetToRoleSelect,
+    signOut,
   } = useNoklai();
 
   const isPatient = role === 'patient';
@@ -77,10 +78,20 @@ export default function CaregiverSettingsScreen() {
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
-      'Would you like to reset role selection and return to the welcome screen?',
+      'Would you like to sign out and return to the welcome screen?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => resetToLaunch() },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            if (signOut) {
+              await signOut();
+            } else {
+              resetToLaunch();
+            }
+          },
+        },
       ]
     );
   };

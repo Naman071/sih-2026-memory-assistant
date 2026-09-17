@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../../theme/noklaiTheme';
@@ -23,6 +24,7 @@ import NoklaiButton from '../../components/NoklaiButton';
 export default function PatientHomeScreen({ onNavigateToGames }) {
   const { isDarkMode } = useTheme();
   const {
+    activePatientId,
     activePatientName,
     patientAvatar,
     caregiverName,
@@ -38,6 +40,17 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderTime, setReminderTime] = useState('');
+
+  const handleShareCode = async () => {
+    const code = activePatientId || 'P001';
+    try {
+      await Share.share({
+        message: `Connect with me on SIH Memory Assistant! My Patient Connection Code is: ${code}`,
+      });
+    } catch (e) {
+      Alert.alert('Connection Code', `Your Patient Code is: ${code}`);
+    }
+  };
 
   const handleSaveReminder = () => {
     if (!reminderTitle.trim()) {
@@ -122,6 +135,60 @@ export default function PatientHomeScreen({ onNavigateToGames }) {
               ]}
             >
               {caregiverName || 'Caregiver'} is connected with you
+            </Text>
+          </View>
+        </View>
+
+        {/* Caregiver Connection Code Card */}
+        <View
+          style={[
+            styles.codeCard,
+            {
+              backgroundColor: isDarkMode ? '#132117' : '#F0FDF4',
+              borderColor: isDarkMode ? '#1E3A27' : '#BBF7D0',
+            },
+            !isDarkMode && noklaiTheme.shadows.card,
+          ]}
+        >
+          <View style={styles.codeCardTop}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={styles.codeIconCircle}>
+                <Ionicons name="key" size={16} color="#16A34A" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[styles.codeCardTitle, { color: isDarkMode ? '#DCFCE7' : '#14532D' }]}>
+                  Caregiver Connection Code
+                </Text>
+                <Text style={[styles.codeCardSub, { color: isDarkMode ? '#86EFAC' : '#166534' }]}>
+                  Share with caregiver to link & view your progress
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.shareBtn}
+              activeOpacity={0.8}
+              onPress={handleShareCode}
+            >
+              <Ionicons name="share-social-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.shareBtnText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={[
+              styles.codeDisplayBox,
+              {
+                backgroundColor: isDarkMode ? '#0D1710' : '#FFFFFF',
+                borderColor: isDarkMode ? '#22543D' : '#86EFAC',
+              },
+            ]}
+          >
+            <Text style={[styles.codeDisplayText, { color: isDarkMode ? '#4ADE80' : '#15803D' }]}>
+              {activePatientId || 'P001'}
+            </Text>
+            <Text style={[styles.codeTapHint, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>
+              Your Unique ID
             </Text>
           </View>
         </View>
@@ -557,5 +624,65 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     marginTop: 10,
+  },
+  codeCard: {
+    borderRadius: noklaiTheme.radii.xl,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  codeCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  codeIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  codeCardSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: noklaiTheme.radii.full,
+  },
+  shareBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  codeDisplayBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: noklaiTheme.radii.lg,
+    borderWidth: 1,
+  },
+  codeDisplayText: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  codeTapHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 });

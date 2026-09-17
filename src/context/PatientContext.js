@@ -16,7 +16,7 @@ export function PatientProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingSetup, setIsEditingSetup] = useState(false);
 
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState('P001');
   const [patientName, setPatientName] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
@@ -72,9 +72,7 @@ export function PatientProvider({ children }) {
   }, []);
 
   const savePatientSetup = useCallback(async (data) => {
-    const assignedId = patientId
-      ? patientId
-      : `P_${Date.now()}`;
+    const assignedId = data?.patientId || patientId || 'P001';
 
     const profileData = {
       patientId: assignedId,

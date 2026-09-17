@@ -13,20 +13,35 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../../theme/noklaiTheme';
 import { useTheme } from '../../../context/ThemeContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { useNoklai } from '../../context/NoklaiContext';
 import { getAIResponse } from '../../../modules/aiData';
 
 export default function NoklaiAIScreen({ onClose }) {
   const { isDarkMode } = useTheme();
-  const { role, activePatientName, activePatientId, caregiverName, reminders, setAiModalVisible } = useNoklai();
+  const { currentLanguage } = useLanguage();
+  const {
+    role,
+    activePatientName,
+    activePatientId,
+    caregiverName,
+    reminders,
+    analyticsData,
+    setAiModalVisible,
+  } = useNoklai();
 
   const isCaregiver = role === 'caregiver';
   const pName = activePatientName || 'Patient';
   const cName = caregiverName || 'Caregiver';
+  const isHindi = currentLanguage === 'hi';
 
   const defaultGreeting = isCaregiver
-    ? `Hello ${cName}! I am your Noklai Care Assistant. I can help analyze ${pName}'s cognitive performance, suggest stimulating cultural games, or generate a care summary.`
-    : `Hello ${pName}! I am your friendly Noklai companion. How are you feeling today? I can help you remember your daily routine, family stories, or play a game with you!`;
+    ? (isHindi
+        ? `नमस्ते ${cName} जी! मैं आपका नोकलाई केयर असिस्टेंट हूँ। मैं ${pName} जी की दिनचर्या, गेम प्रोग्रेस (CVI), और याददाश्त देखभाल में सहायता के लिए यहाँ हूँ।`
+        : `Hello ${cName}! I am your Noklai Care Assistant. I can help analyze ${pName}'s cognitive performance (CVI), suggest stimulating cultural games, or generate a care summary.`)
+    : (isHindi
+        ? `नमस्ते ${pName} जी! मैं आपका नोकलाई साथी हूँ। आप आज कैसा महसूस कर रहे हैं? मैं आपको दवाइयों, दैनिक दिनचर्या, या पूर्वोत्तर की कहानियों में मदद कर सकता हूँ!`
+        : `Hello ${pName}! I am your friendly Noklai companion. How are you feeling today? I can help you remember your daily routine, family stories, or play a game with you!`);
 
   const [messages, setMessages] = useState([
     {
@@ -40,18 +55,32 @@ export default function NoklaiAIScreen({ onClose }) {
   const [input, setInput] = useState('');
 
   const quickChips = isCaregiver
-    ? [
-        `How is ${pName} doing?`,
-        'Suggest next brain exercise',
-        'Summarize this week\'s progress',
-        'Explain Cognitive Vitality Index',
-      ]
-    : [
-        'What is my schedule today?',
-        'Tell me a Northeast story',
-        'Remind me about my medicine',
-        'Who is visiting me today?',
-      ];
+    ? (isHindi
+        ? [
+            `${pName} जी की स्थिति कैसी है?`,
+            'अगला दिमागी खेल सुझाएं',
+            'CVI स्कोर और रिपोर्ट बताएं',
+            'आज का शेड्यूल क्या है?',
+          ]
+        : [
+            `How is ${pName} doing?`,
+            'Suggest next brain exercise',
+            'Explain Cognitive Vitality Index',
+            'What is the schedule today?',
+          ])
+    : (isHindi
+        ? [
+            'मेरी दवाइयों का समय बताओ',
+            'आज का मेरा शेड्यूल क्या है?',
+            'पूर्वोत्तर की कोई कहानी सुनाओ',
+            'कोई खेल खेलना है',
+          ]
+        : [
+            'What is my schedule today?',
+            'Remind me about my medicine',
+            'Tell me a Northeast story',
+            'Suggest a brain exercise',
+          ]);
 
   const handleSend = (textToSend) => {
     const query = (textToSend || input).trim();
@@ -67,36 +96,23 @@ export default function NoklaiAIScreen({ onClose }) {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
 
-    // Generate response using existing aiData module + smart conversational logic
+    // Generate response using comprehensive multi-lingual context engine
     setTimeout(() => {
       let reply = '';
-      const lower = query.toLowerCase();
-
-      if (lower.includes('schedule') || lower.includes('routine') || lower.includes('today')) {
-        const pending = (reminders || []).filter((s) => !s.done);
-        if (pending.length > 0) {
-          reply = `Today's upcoming tasks for ${pName}:\n• ` +
-            pending.map((p) => `${p.time}: ${p.title}`).join('\n• ') +
-            '\n\nWould you like me to set an audio reminder?';
-        } else {
-          reply = (reminders || []).length > 0
-            ? `All scheduled activities for today are completed! Great job maintaining consistency.`
-            : `No reminders have been scheduled yet. You can add one anytime in the "My Day & Reminders" section.`;
-        }
-      } else if (lower.includes('suggest') || lower.includes('game') || lower.includes('exercise')) {
-        reply = `Suh Tah Lam (Bamboo Rhythm) is recommended! It stimulates motor-auditory recall and supports pattern memory with joyful cultural music.`;
-      } else if (lower.includes('story') || lower.includes('folk')) {
-        reply = `Here is a comforting memory from the hills: "Once during the Chapchar Kut spring festival, elders gathered under the great banyan tree while the young danced the bamboo rhythm with joyful songs..." Would you like to play the Story Memory game?`;
-      } else if (lower.includes('vitality') || lower.includes('progress') || lower.includes('how is') || lower.includes('doing')) {
-        reply = `${pName}'s cognitive sessions are actively logged. Accuracy and Vitality Index update dynamically after each completed exercise!`;
-      } else {
-        try {
-          reply = getAIResponse(query, activePatientId || 'P001');
-        } catch (e) {
-          reply = isCaregiver
-            ? `I'm tracking ${pName}'s daily routines and memory engagement. You can ask me about game scores, schedules, or care recommendations.`
-            : `I'm here with you always. Take your time, enjoy today's moments, and let me know if you need any reminders!`;
-        }
+      try {
+        reply = getAIResponse(query, {
+          patientId: activePatientId || 'P001',
+          patientName: pName,
+          caregiverName: cName,
+          role,
+          reminders,
+          analyticsData,
+          language: currentLanguage,
+        });
+      } catch (e) {
+        reply = isCaregiver
+          ? `I'm tracking ${pName}'s daily routines and memory engagement. You can ask me about game scores (CVI), schedules, or care recommendations.`
+          : `I'm here with you always. Take your time, enjoy today's moments, and let me know if you need any reminders!`;
       }
 
       const aiMessage = {
@@ -106,7 +122,7 @@ export default function NoklaiAIScreen({ onClose }) {
         timestamp: 'Just now',
       };
       setMessages((prev) => [...prev, aiMessage]);
-    }, 600);
+    }, 450);
   };
 
   const handleClose = () => {

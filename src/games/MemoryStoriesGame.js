@@ -30,10 +30,11 @@ const SCREENS = {
   COMPLETE: 'complete',
 };
 
-export default function MemoryStoriesGame({ onExit }) {
+export default function MemoryStoriesGame({ onExit, patientId: propPatientId }) {
   const { theme, isDarkMode } = useTheme();
   const { t, currentLanguage } = useLanguage();
-  const { patientId: activePatientId } = usePatient();
+  const { patientId: contextPatientId } = usePatient?.() || {};
+  const activePatientId = propPatientId || contextPatientId || 'P001';
 
   // Screen flow state
   const [screen, setScreen] = useState(SCREENS.STORY);
@@ -43,6 +44,8 @@ export default function MemoryStoriesGame({ onExit }) {
   const [tierQuestionIndex, setTierQuestionIndex] = useState(0); // index inside current tier
   const tierStartTimeRef = useRef(Date.now());
   const sessionIdRef = useRef(`stories_sess_${Date.now()}`);
+  const questionStartTimeRef = useRef(Date.now());
+  const responseTimesRef = useRef([]);
   const [unlockedTiers, setUnlockedTiers] = useState({
     easy: true,
     medium: false,
@@ -92,6 +95,9 @@ export default function MemoryStoriesGame({ onExit }) {
         return;
       }
 
+      const elapsedSec = Math.max(0.2, (Date.now() - questionStartTimeRef.current) / 1000);
+      responseTimesRef.current.push(elapsedSec);
+
       setSelectedChoice(choiceIndex);
       const isCorrect = choiceIndex === currentQuestion.correctIndex;
       setIsAnswerCorrect(isCorrect);
@@ -108,12 +114,13 @@ export default function MemoryStoriesGame({ onExit }) {
   );
 
   // Proceed to next question or trigger level unlock / game complete
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     const nextIdx = tierQuestionIndex + 1;
 
     // Reset answering state for next question
     setSelectedChoice(null);
     setIsAnswerCorrect(null);
+    questionStartTimeRef.current = Date.now();
 
     if (nextIdx < currentTierQuestions.length) {
       // More questions in current tier
@@ -123,38 +130,43 @@ export default function MemoryStoriesGame({ onExit }) {
       const totalAttempts = currentTierQuestions.length;
       const totalCorrect = answeredQuestionIds.size;
       const actualDurationSec = Math.max(1, Math.round((Date.now() - tierStartTimeRef.current) / 1000));
-      const playerId = activePatientId || 'guest_player';
+      const playerId = activePatientId || 'P001';
       const sessionId = sessionIdRef.current;
-      const isEligible = totalAttempts > 0 && Boolean(activePatientId);
+      const isEligible = totalAttempts > 0;
+
+      // Authentic average response time across questions
+      const validRts = responseTimesRef.current;
+      const avgResponseTimeSec = validRts.length > 0
+        ? Math.round((validRts.reduce((a, b) => a + b, 0) / validRts.length) * 10) / 10
+        : null;
 
       // 1. Save to centralized LocalPerformanceStorage
-      if (activePatientId) {
-        defaultLocalStorage
-          .saveRoundResult({
-            session: {
-              id: sessionId,
-              playerId,
-              gameId: 'memory_stories',
-            },
-            roundData: {
-              gameId: 'memory_stories',
-              playerId,
-              sessionId,
-              roundNumber: 1,
-              status: 'completed',
-              difficulty: currentTier,
-              attempts: totalAttempts,
-              correctAttempts: totalCorrect,
-              accuracy: totalAttempts > 0 ? totalCorrect / totalAttempts : 0,
-              durationSec: actualDurationSec,
-              startedAt: new Date(tierStartTimeRef.current).toISOString(),
-              completedAt: new Date().toISOString(),
-              eligibleForCVI: isEligible,
-            },
-          })
-          .catch((err) => {
-            console.warn('[MemoryStoriesGame] LocalPerformanceStorage save notice:', err?.message);
-          });
+      try {
+        await defaultLocalStorage.saveRoundResult({
+          session: {
+            id: sessionId,
+            playerId,
+            gameId: 'memory_stories',
+          },
+          roundData: {
+            gameId: 'memory_stories',
+            playerId,
+            sessionId,
+            roundNumber: 1,
+            status: 'completed',
+            difficulty: currentTier,
+            attempts: totalAttempts,
+            correctAttempts: totalCorrect,
+            accuracy: totalAttempts > 0 ? totalCorrect / totalAttempts : 0,
+            durationSec: actualDurationSec,
+            responseTimeMs: avgResponseTimeSec ? Math.round(avgResponseTimeSec * 1000) : null,
+            startedAt: new Date(tierStartTimeRef.current).toISOString(),
+            completedAt: new Date().toISOString(),
+            eligibleForCVI: isEligible,
+          },
+        });
+      } catch (err) {
+        console.warn('[MemoryStoriesGame] LocalPerformanceStorage save notice:', err?.message);
       }
 
       // 2. Record in unified caregiver cognitive analytics service
@@ -168,7 +180,7 @@ export default function MemoryStoriesGame({ onExit }) {
           questionsTotal: totalAttempts,
           questionsCorrect: totalCorrect,
           accuracy: totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null,
-          responseTimeSec: null,
+          responseTimeSec: avgResponseTimeSec,
           score: totalCorrect * 10,
           patientId: playerId,
           metadata: {

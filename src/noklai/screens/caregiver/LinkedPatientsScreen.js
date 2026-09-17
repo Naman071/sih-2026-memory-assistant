@@ -19,13 +19,47 @@ import NoklaiHeader from '../../components/NoklaiHeader';
 
 export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
   const { isDarkMode } = useTheme();
-  const { patients, activePatientId, setActivePatientId, addPatient, setActiveCaregiverSubScreen } = useNoklai();
+  const {
+    patients,
+    activePatientId,
+    setActivePatientId,
+    addPatient,
+    setActiveCaregiverSubScreen,
+    linkPatientByInviteCode,
+  } = useNoklai();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [linkError, setLinkError] = useState('');
+  const [isLinking, setIsLinking] = useState(false);
+
   const [newName, setNewName] = useState('');
   const [newAge, setNewAge] = useState('');
   const [newGender, setNewGender] = useState('female');
   const [newRelation, setNewRelation] = useState('Grandparent');
+
+  const handleLinkByCode = async () => {
+    if (!inviteCode.trim()) {
+      setLinkError('Please enter a patient code.');
+      return;
+    }
+    setIsLinking(true);
+    setLinkError('');
+    try {
+      const result = await linkPatientByInviteCode(inviteCode.trim());
+      if (result.success) {
+        setInviteCode('');
+        setLinkModalVisible(false);
+      } else {
+        setLinkError(result.message || 'Could not find patient with this code.');
+      }
+    } catch (err) {
+      setLinkError('Failed to connect. Please try again.');
+    } finally {
+      setIsLinking(false);
+    }
+  };
 
   const handleCreatePatient = () => {
     if (!newName.trim()) return;
@@ -136,7 +170,7 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
                       { color: isDarkMode ? '#9CA3AF' : '#656F7D' },
                     ]}
                   >
-                    Connected since {patient.connectedSince || 'Mar 2025'}
+                    ID: {patient.id} • Connected since {patient.connectedSince || 'Mar 2025'}
                   </Text>
                 </View>
 
@@ -150,29 +184,133 @@ export default function LinkedPatientsScreen({ onBack, onSelectPatient }) {
           })}
         </View>
 
-        {/* Add Another Person Button */}
-        <TouchableOpacity
-          style={[
-            styles.addPersonButton,
-            {
-              borderColor: noklaiTheme.colors.primary,
-              backgroundColor: isDarkMode ? '#221E36' : '#F8F6FE',
-            },
-          ]}
-          activeOpacity={0.8}
-          onPress={() => setModalVisible(true)}
-        >
-          <Ionicons name="add" size={20} color={noklaiTheme.colors.primary} style={{ marginRight: 6 }} />
-          <Text style={[styles.addPersonText, { color: noklaiTheme.colors.primary }]}>
-            + Add Another Person
-          </Text>
-        </TouchableOpacity>
+        {/* Action Buttons: Link by Code & Add Profile */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              {
+                borderColor: '#16A34A',
+                backgroundColor: isDarkMode ? '#14291E' : '#F0FDF4',
+                flex: 1,
+              },
+            ]}
+            activeOpacity={0.8}
+            onPress={() => {
+              setLinkError('');
+              setInviteCode('');
+              setLinkModalVisible(true);
+            }}
+          >
+            <Ionicons name="link" size={18} color="#16A34A" style={{ marginRight: 6 }} />
+            <Text style={[styles.actionBtnText, { color: '#16A34A' }]}>
+              Link by Code
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              {
+                borderColor: noklaiTheme.colors.primary,
+                backgroundColor: isDarkMode ? '#221E36' : '#F8F6FE',
+                flex: 1,
+              },
+            ]}
+            activeOpacity={0.8}
+            onPress={() => setModalVisible(true)}
+          >
+            <Ionicons name="add" size={18} color={noklaiTheme.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={[styles.actionBtnText, { color: noklaiTheme.colors.primary }]}>
+              Add Profile
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Quote Card (Screen 5 in reference design) */}
         <QuoteCard
           quote="Care is a journey we walk together."
           author="Family Support"
         />
+
+        {/* Link Patient by Code Modal */}
+        <Modal visible={linkModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.modalCard,
+                {
+                  backgroundColor: isDarkMode ? '#1E232E' : '#FFFFFF',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <View style={[styles.linkIconCircle, { backgroundColor: '#DCFCE7' }]}>
+                  <Ionicons name="link" size={20} color="#16A34A" />
+                </View>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary, marginBottom: 0, marginLeft: 10 },
+                  ]}
+                >
+                  Link Loved One by Code
+                </Text>
+              </View>
+
+              <Text style={{ fontSize: 13, color: isDarkMode ? '#9CA3AF' : '#64748B', marginBottom: 16, lineHeight: 18 }}>
+                Enter the Patient Connection Code displayed on your loved one&apos;s home screen (e.g. P001) to sync their cognitive games and progress in real-time.
+              </Text>
+
+              {linkError ? (
+                <View style={styles.modalErrorBanner}>
+                  <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+                  <Text style={styles.modalErrorText}>{linkError}</Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Patient Connection Code</Text>
+              <TextInput
+                placeholder="e.g. P001"
+                placeholderTextColor="#9CA3AF"
+                value={inviteCode}
+                onChangeText={(text) => {
+                  setInviteCode(text);
+                  if (linkError) setLinkError('');
+                }}
+                autoCapitalize="characters"
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: isDarkMode ? '#283142' : '#F4F5F0',
+                    color: isDarkMode ? '#F3F4F6' : '#1E242B',
+                    fontWeight: '700',
+                    fontSize: 16,
+                    letterSpacing: 1,
+                  },
+                ]}
+              />
+
+              <View style={styles.modalButtonsRow}>
+                <NoklaiButton
+                  title="Cancel"
+                  variant="outline"
+                  size="sm"
+                  onPress={() => setLinkModalVisible(false)}
+                  style={{ flex: 1, marginRight: 8 }}
+                />
+                <NoklaiButton
+                  title={isLinking ? 'Connecting...' : 'Connect'}
+                  variant="primary"
+                  size="sm"
+                  disabled={isLinking}
+                  onPress={handleLinkByCode}
+                  style={{ flex: 1, marginLeft: 8 }}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Add Person Modal */}
         <Modal visible={modalVisible} transparent animationType="fade">
@@ -400,6 +538,42 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     marginTop: 10,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: noklaiTheme.radii.xl,
+    borderWidth: 1.5,
+  },
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  linkIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: noklaiTheme.radii.md,
+    marginBottom: 12,
+  },
+  modalErrorText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
 });
 

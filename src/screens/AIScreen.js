@@ -12,9 +12,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { usePatient } from '../context/PatientContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getAIResponse } from '../modules/aiData';
 
 export default function AIScreen() {
   const { theme } = useTheme();
+  const { patientId, patientName, caregiverName } = usePatient?.() || {};
+  const { currentLanguage } = useLanguage?.() || {};
 
   const [messages, setMessages] = useState([
     {
@@ -38,16 +43,21 @@ export default function AIScreen() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
 
-    // Temporary AI response
     setTimeout(() => {
+      const reply = getAIResponse(userMessage.text, {
+        patientId: patientId || 'P001',
+        patientName,
+        caregiverName,
+        language: currentLanguage,
+      });
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: 'Thank you for your message. I am still learning!',
+        text: reply,
       };
 
       setMessages(prev => [...prev, aiMessage]);
-    }, 700);
+    }, 450);
   };
 
   const renderMessage = ({ item }) => {

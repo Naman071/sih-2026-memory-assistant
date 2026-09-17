@@ -24,6 +24,7 @@ import PatientProgressScreen from './screens/caregiver/PatientProgressScreen';
 import GamePerformanceScreen from './screens/caregiver/GamePerformanceScreen';
 import ActivityHistoryScreen from './screens/caregiver/ActivityHistoryScreen';
 import InsightsScreen from './screens/caregiver/InsightsScreen';
+import CaregiverAnalyticsScreen from '../screens/CaregiverAnalyticsScreen';
 import CaregiverSettingsScreen from './screens/caregiver/CaregiverSettingsScreen';
 
 // Patient Screens
@@ -102,7 +103,7 @@ function NoklaiShell() {
       case 'ai':
         return <NoklaiAIScreen onClose={() => setActiveCaregiverTab('home')} />;
       case 'insights':
-        return <InsightsScreen />;
+        return <CaregiverAnalyticsScreen />;
       case 'settings':
         return <CaregiverSettingsScreen />;
       default:
@@ -124,7 +125,11 @@ function NoklaiShell() {
       case 'ai':
         return <NoklaiAIScreen onClose={() => setActivePatientTab('home')} />;
       case 'insights':
-        return <InsightsScreen />;
+        return (
+          <InsightsScreen
+            onNavigateToGames={() => setActivePatientTab('games')}
+          />
+        );
       case 'settings':
         return <CaregiverSettingsScreen />;
       default:

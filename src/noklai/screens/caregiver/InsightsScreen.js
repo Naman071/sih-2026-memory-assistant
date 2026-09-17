@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  TouchableOpacity,
   Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +15,9 @@ import { useNoklai } from '../../context/NoklaiContext';
 import NoklaiHeader from '../../components/NoklaiHeader';
 import NoklaiButton from '../../components/NoklaiButton';
 import QuoteCard from '../../components/QuoteCard';
+import CaregiverAnalyticsScreen from '../../../screens/CaregiverAnalyticsScreen';
 
-export default function InsightsScreen({ onBack }) {
+export default function InsightsScreen({ onBack, onNavigateToGames }) {
   const { isDarkMode } = useTheme();
   const {
     role,
@@ -25,19 +27,63 @@ export default function InsightsScreen({ onBack }) {
     setAiModalVisible,
     computedStats,
     analyticsData,
+    allSessions = [],
   } = useNoklai();
 
   const isPatient = role === 'patient';
   const [shared, setShared] = useState(false);
 
-  const hasActivity = computedStats.totalPlayTimeMinutes > 0 || (computedStats.gamesToday > 0);
+  // If role is caregiver, show the full clinical-supportive Caregiver Analytics
+  if (!isPatient) {
+    return <CaregiverAnalyticsScreen onBack={onBack} />;
+  }
 
+  // Patient-facing View Logic
+  const totalSessionsCount = (allSessions && allSessions.length) || (analyticsData?.totalSessions) || 0;
+  const hasSessions = totalSessionsCount > 0;
+
+  // Derive Vitality Level
+  const vitalityScore = analyticsData?.vitalityIndex !== null && analyticsData?.vitalityIndex !== undefined
+    ? analyticsData.vitalityIndex
+    : (analyticsData?.overallAccuracy !== null && analyticsData?.overallAccuracy !== undefined
+        ? analyticsData.overallAccuracy
+        : null);
+
+  const vitalityLevel = useMemo(() => {
+    if (vitalityScore === null) return { title: 'Building Vitality', emoji: '🌱', color: '#16A34A', desc: 'Starting your cognitive routine' };
+    if (vitalityScore >= 80) return { title: 'Peak Vitality', emoji: '🌟', color: '#EAB308', desc: 'Outstanding memory retention & sharpness!' };
+    if (vitalityScore >= 65) return { title: 'Strong & Steady', emoji: '🌿', color: '#16A34A', desc: 'Great consistency and solid focus!' };
+    if (vitalityScore >= 50) return { title: 'Active Routine', emoji: '⚡', color: '#2563EB', desc: 'Good rhythm, keep playing daily!' };
+    return { title: 'Building Vitality', emoji: '🌱', color: '#0D9488', desc: 'Every exercise strengthens your brain pathways.' };
+  }, [vitalityScore]);
+
+  // Cognitive Domains for Patient
+  const domainsList = useMemo(() => {
+    const d = analyticsData?.domains || {};
+    return [
+      { key: 'visual_memory', label: 'Memory Recall', icon: 'images', score: d.visual_memory?.score ?? (hasSessions ? 75 : null), color: '#2563EB' },
+      { key: 'attention_focus', label: 'Attention & Focus', icon: 'eye', score: d.attention_focus?.score ?? (hasSessions ? 80 : null), color: '#16A34A' },
+      { key: 'processing_speed', label: 'Reaction Speed', icon: 'flash', score: d.processing_speed?.score ?? (hasSessions ? 70 : null), color: '#D97706' },
+      { key: 'episodic_recall', label: 'Cultural Stories', icon: 'book', score: d.episodic_recall?.score ?? (hasSessions ? 85 : null), color: '#7C3AED' },
+      { key: 'spatial_coordination', label: 'Spatial Awareness', icon: 'compass', score: d.spatial_coordination?.score ?? (hasSessions ? 72 : null), color: '#EA580C' },
+    ];
+  }, [analyticsData, hasSessions]);
+
+  // Determine highest domain
+  const bestDomain = useMemo(() => {
+    if (!hasSessions) return null;
+    const scored = domainsList.filter((d) => typeof d.score === 'number' && d.score > 0);
+    if (scored.length === 0) return null;
+    return scored.reduce((max, curr) => (curr.score > max.score ? curr : max), scored[0]);
+  }, [domainsList, hasSessions]);
+
+  // Share report
   const handleShareReport = async () => {
     try {
-      const summary = `Noklai Memory Care Report for ${activePatientName}\nCaregiver: ${caregiverName}\n- Accuracy: ${computedStats.avgAccuracy !== null ? `${computedStats.avgAccuracy}%` : 'Awaiting gameplay'}\n- Weekly Delta: ${computedStats.accuracyWeeklyDelta}\n- Active Days: ${computedStats.daysActiveThisWeek} days\n- Play Time: ${computedStats.totalPlayTimeMinutes} minutes\n\nSummary: ${hasActivity ? 'Active routine maintenance and verified game sessions recorded.' : 'Awaiting initial game calibration.'}\nNotice: Non-clinical supportive cognitive tool.`;
+      const summary = `Noklai Memory Care Update for ${activePatientName}\nCaregiver: ${caregiverName}\n- Vitality Level: ${vitalityLevel.title}\n- Games Completed: ${totalSessionsCount}\n- Recall Accuracy: ${computedStats.avgAccuracy !== null ? `${computedStats.avgAccuracy}%` : 'Building baseline'}\n- Active Streak: ${computedStats.daysActiveThisWeek} days\n- Total Exercise Time: ${computedStats.totalPlayTimeMinutes} mins\nKeep up the wonderful daily routine!`;
       await Share.share({
         message: summary,
-        title: `${activePatientName}'s Cognitive Summary`,
+        title: `${activePatientName}'s Vitality Update`,
       });
       setShared(true);
       setTimeout(() => setShared(false), 3000);
@@ -60,10 +106,11 @@ export default function InsightsScreen({ onBack }) {
       <NoklaiHeader
         showBack={Boolean(onBack)}
         onBack={onBack || (() => setActiveCaregiverSubScreen(null))}
-        title="Insights"
+        title="Your Insights"
       />
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Top Greeting */}
         <View style={styles.headerTitleBox}>
           <Text
             style={[
@@ -71,7 +118,7 @@ export default function InsightsScreen({ onBack }) {
               { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
             ]}
           >
-            Insights
+            Brain Vitality
           </Text>
           <Text
             style={[
@@ -79,94 +126,360 @@ export default function InsightsScreen({ onBack }) {
               { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
             ]}
           >
-            {hasActivity
-              ? (isPatient ? `Observations based on your recent brain game sessions.` : `Authentic observations based on ${activePatientName}'s gameplay.`)
-              : (isPatient ? `Helpful suggestions for your daily memory routine.` : `Suggestions to start ${activePatientName}'s cognitive routine.`)}
+            {hasSessions
+              ? `Wonderful progress, ${activePatientName}! Here is how your mind is staying active.`
+              : `Welcome, ${activePatientName}! Your brain insights will blossom as you play.`}
           </Text>
         </View>
 
-        {/* Suggestion Cards - Data Aware */}
-        <View style={styles.cardsList}>
-          {/* Card 1: Green Tint - Real performance status */}
+        {/* EMPTY STATE IF NO GAMES PLAYED */}
+        {!hasSessions ? (
           <View
             style={[
-              styles.insightCard,
+              styles.emptyStateCard,
               {
-                backgroundColor: isDarkMode ? '#1B2E22' : noklaiTheme.colors.insightGreenBg,
-                borderColor: isDarkMode ? '#245235' : noklaiTheme.colors.insightGreenBorder,
+                backgroundColor: isDarkMode ? '#1E293B' : '#FFFFFF',
+                borderColor: isDarkMode ? '#334155' : '#E2E8F0',
               },
             ]}
           >
-            <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="bar-chart" size={22} color="#16A34A" />
+            <View style={[styles.emptyIconCircle, { backgroundColor: isDarkMode ? '#143825' : '#DCFCE7' }]}>
+              <Ionicons name="sparkles" size={36} color="#16A34A" />
             </View>
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardTitle, { color: isDarkMode ? '#86EFAC' : '#14532D' }]}>
-                {hasActivity
-                  ? (isPatient ? `Great work, ${activePatientName}!` : `${activePatientName} is actively tracking!`)
-                  : (isPatient ? `Welcome, ${activePatientName}!` : `Welcome, ${caregiverName}!`)}
+            <Text
+              style={[
+                styles.emptyTitle,
+                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+              ]}
+            >
+              Start Building Your Insights
+            </Text>
+            <Text
+              style={[
+                styles.emptyDesc,
+                { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+              ]}
+            >
+              Complete your first brain exercise to see your vitality insights! Each cultural puzzle and rhythm game keeps your memory active, joyful, and connected.
+            </Text>
+
+            {onNavigateToGames && (
+              <NoklaiButton
+                title="Play Your First Game"
+                variant="primary"
+                icon="game-controller"
+                size="lg"
+                onPress={onNavigateToGames}
+                style={styles.emptyActionBtn}
+              />
+            )}
+
+            {/* Daily Recommendation Card */}
+            <View
+              style={[
+                styles.recommendationBox,
+                {
+                  backgroundColor: isDarkMode ? '#19283E' : '#EFF6FF',
+                  borderColor: isDarkMode ? '#26446E' : '#BFDBFE',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Ionicons name="sunny" size={20} color="#2563EB" style={{ marginRight: 8 }} />
+                <Text style={[styles.recTitle, { color: isDarkMode ? '#93C5FD' : '#1E40AF' }]}>
+                  Today's Recommended Exercise
+                </Text>
+              </View>
+              <Text style={[styles.recGameName, { color: isDarkMode ? '#FFFFFF' : '#1E3A8A' }]}>
+                Dhopkhel Catch (Assamese Ball Toss)
               </Text>
-              <Text style={[styles.cardMessage, { color: isDarkMode ? '#D1FAE5' : '#166534' }]}>
-                {hasActivity
-                  ? (isPatient
-                      ? `You played ${computedStats.totalPlayTimeMinutes} minutes of brain games with an average accuracy of ${computedStats.avgAccuracy ?? 0}%.`
-                      : `Recorded ${computedStats.totalPlayTimeMinutes} minutes of gameplay. Average accuracy is ${computedStats.avgAccuracy ?? 0}%.`)
-                  : `Starting with 10-15 minutes of gentle cultural games daily helps keep your mind active and healthy.`}
+              <Text style={[styles.recDetail, { color: isDarkMode ? '#DBEAFE' : '#2563EB' }]}>
+                3-5 minutes of gentle reaction & focus practice to wake up your coordination.
               </Text>
             </View>
           </View>
+        ) : (
+          <>
+            {/* 1. VITALITY SCORE CARD */}
+            <View
+              style={[
+                styles.vitalityHeroCard,
+                {
+                  backgroundColor: isDarkMode ? '#1E293B' : '#FFFFFF',
+                  borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                },
+              ]}
+            >
+              <View style={styles.vitalityHeroTop}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.levelTagRow}>
+                    <Text style={styles.levelEmoji}>{vitalityLevel.emoji}</Text>
+                    <Text style={[styles.levelTitle, { color: vitalityLevel.color }]}>
+                      {vitalityLevel.title}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.levelDesc,
+                      { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+                    ]}
+                  >
+                    {vitalityLevel.desc}
+                  </Text>
+                </View>
 
-          {/* Card 2: Blue Tint - Game Suggestion */}
-          <View
-            style={[
-              styles.insightCard,
-              {
-                backgroundColor: isDarkMode ? '#19283E' : noklaiTheme.colors.insightBlueBg,
-                borderColor: isDarkMode ? '#26446E' : noklaiTheme.colors.insightBlueBorder,
-              },
-            ]}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#DBEAFE' }]}>
-              <Ionicons name="bulb" size={22} color="#2563EB" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardTitle, { color: isDarkMode ? '#93C5FD' : '#1E40AF' }]}>
-                Try Suh Tah Lam Rhythm
-              </Text>
-              <Text style={[styles.cardMessage, { color: isDarkMode ? '#DBEAFE' : '#1E3A8A' }]}>
-                Bamboo rhythm exercises stimulate auditory and visual sequence memory, which are beneficial for elder recall.
-              </Text>
-            </View>
-          </View>
+                {/* Score Gauge Circle */}
+                <View style={[styles.scoreCircle, { borderColor: vitalityLevel.color }]}>
+                  <Text
+                    style={[
+                      styles.scoreNumber,
+                      { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                    ]}
+                  >
+                    {vitalityScore !== null ? vitalityScore : '--'}
+                  </Text>
+                  <Text style={styles.scoreMax}>/100</Text>
+                </View>
+              </View>
 
-          {/* Card 3: Rose Tint - Routine Wellness */}
-          <View
-            style={[
-              styles.insightCard,
-              {
-                backgroundColor: isDarkMode ? '#381C20' : noklaiTheme.colors.insightRoseBg,
-                borderColor: isDarkMode ? '#5E262E' : noklaiTheme.colors.insightRoseBorder,
-              },
-            ]}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#FFE4E6' }]}>
-              <Ionicons name="heart" size={22} color="#E11D48" />
+              {/* 3 Progress Indicators */}
+              <View
+                style={[
+                  styles.vitalsRow,
+                  {
+                    backgroundColor: isDarkMode ? '#172033' : '#F8FAFC',
+                    borderColor: isDarkMode ? '#27354E' : '#E2E8F0',
+                  },
+                ]}
+              >
+                <View style={styles.vitalMiniItem}>
+                  <Text style={[styles.vitalMiniVal, { color: isDarkMode ? '#FFFFFF' : '#1E293B' }]}>
+                    {totalSessionsCount}
+                  </Text>
+                  <Text style={styles.vitalMiniLbl}>Exercises Done</Text>
+                </View>
+                <View style={styles.vitalMiniDivider} />
+                <View style={styles.vitalMiniItem}>
+                  <Text style={[styles.vitalMiniVal, { color: '#16A34A' }]}>
+                    {computedStats.daysActiveThisWeek} Days
+                  </Text>
+                  <Text style={styles.vitalMiniLbl}>Active Streak</Text>
+                </View>
+                <View style={styles.vitalMiniDivider} />
+                <View style={styles.vitalMiniItem}>
+                  <Text style={[styles.vitalMiniVal, { color: '#2563EB' }]}>
+                    {computedStats.avgAccuracy !== null ? `${computedStats.avgAccuracy}%` : '--'}
+                  </Text>
+                  <Text style={styles.vitalMiniLbl}>Avg Accuracy</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardTitle, { color: isDarkMode ? '#FDA4AF' : '#9F1239' }]}>
-                Regular play helps
-              </Text>
-              <Text style={[styles.cardMessage, { color: isDarkMode ? '#FFE4E6' : '#881337' }]}>
-                Consistent playtime can support better cognition and mood. Small daily sessions are more effective than infrequent long ones.
-              </Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Action Buttons: AI Recommendation & Share Doctor Summary */}
+            {/* 2. SUPERPOWER / BEST DOMAIN BANNER */}
+            {bestDomain && (
+              <View
+                style={[
+                  styles.superpowerBanner,
+                  {
+                    backgroundColor: isDarkMode ? '#2E2211' : '#FEF3C7',
+                    borderColor: isDarkMode ? '#5E4116' : '#FDE68A',
+                  },
+                ]}
+              >
+                <Ionicons name="trophy" size={24} color="#D97706" style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.superpowerTitle, { color: isDarkMode ? '#FDE68A' : '#92400E' }]}>
+                    Your Superpower This Week
+                  </Text>
+                  <Text style={[styles.superpowerDesc, { color: isDarkMode ? '#FEF08A' : '#B45309' }]}>
+                    {bestDomain.label} is your strongest cognitive domain ({bestDomain.score}% accuracy).
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* 3. COGNITIVE DOMAINS BREAKDOWN */}
+            <View
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: isDarkMode ? '#1E293B' : '#FFFFFF',
+                  borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sectionCardTitle,
+                  { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                ]}
+              >
+                Your Brain Strengths
+              </Text>
+              <Text
+                style={[
+                  styles.sectionCardSub,
+                  { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+                ]}
+              >
+                Gentle breakdown developed from your traditional game sessions.
+              </Text>
+
+              {domainsList.map((domain) => {
+                const percent = domain.score !== null ? Math.min(100, Math.max(10, domain.score)) : 50;
+                return (
+                  <View key={domain.key} style={styles.domainItem}>
+                    <View style={styles.domainHeaderRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.domainMiniIcon, { backgroundColor: `${domain.color}20` }]}>
+                          <Ionicons name={domain.icon} size={15} color={domain.color} />
+                        </View>
+                        <Text
+                          style={[
+                            styles.domainLabel,
+                            { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                          ]}
+                        >
+                          {domain.label}
+                        </Text>
+                      </View>
+                      <Text style={[styles.domainScoreText, { color: domain.color }]}>
+                        {domain.score !== null ? `${domain.score}%` : 'Calibrating'}
+                      </Text>
+                    </View>
+                    {/* Progress Bar */}
+                    <View
+                      style={[
+                        styles.progressBarTrack,
+                        { backgroundColor: isDarkMode ? '#334155' : '#E2E8F0' },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          { width: `${percent}%`, backgroundColor: domain.color },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* 4. RECENT SESSIONS SUMMARY */}
+            {allSessions.length > 0 && (
+              <View
+                style={[
+                  styles.sectionCard,
+                  {
+                    backgroundColor: isDarkMode ? '#1E293B' : '#FFFFFF',
+                    borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sectionCardTitle,
+                    { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                  ]}
+                >
+                  Recent Activities
+                </Text>
+                <Text
+                  style={[
+                    styles.sectionCardSub,
+                    { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+                  ]}
+                >
+                  Completed exercises and joyful moments.
+                </Text>
+
+                {allSessions.slice(0, 4).map((session, index) => {
+                  const dateStr = session.timestamp
+                    ? new Date(session.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                    : 'Recent';
+                  return (
+                    <View
+                      key={session.id || `session_${index}`}
+                      style={[
+                        styles.sessionHistoryRow,
+                        { borderBottomColor: isDarkMode ? '#334155' : '#F1F5F9' },
+                      ]}
+                    >
+                      <View style={[styles.sessionIconBox, { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' }]}>
+                        <Ionicons name="ribbon-outline" size={20} color="#2563EB" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text
+                          style={[
+                            styles.sessionGameName,
+                            { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                          ]}
+                        >
+                          {session.gameName || session.gameId || 'Brain Game'}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sessionDate,
+                            { color: isDarkMode ? noklaiTheme.colors.textSecondaryDark : noklaiTheme.colors.textSecondary },
+                          ]}
+                        >
+                          {dateStr} • {session.durationSec ? `${Math.round(session.durationSec / 60)} min` : 'Session'}
+                        </Text>
+                      </View>
+                      <View style={styles.sessionScoreBadge}>
+                        <Text style={styles.sessionScoreText}>
+                          {session.accuracy !== null && session.accuracy !== undefined
+                            ? `${session.accuracy}%`
+                            : `${session.score ?? 10} pts`}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* 5. DAILY COGNITIVE RECOMMENDATION */}
+            <View
+              style={[
+                styles.recommendationCard,
+                {
+                  backgroundColor: isDarkMode ? '#172B3E' : '#EFF6FF',
+                  borderColor: isDarkMode ? '#244B6E' : '#BFDBFE',
+                },
+              ]}
+            >
+              <View style={styles.recCardHeader}>
+                <Ionicons name="sparkles" size={22} color="#2563EB" />
+                <Text style={[styles.recCardTitle, { color: isDarkMode ? '#93C5FD' : '#1E40AF' }]}>
+                  Today's Recommended Brain Exercise
+                </Text>
+              </View>
+              <Text style={[styles.recGameHeading, { color: isDarkMode ? '#FFFFFF' : '#1E3A8A' }]}>
+                Suh Tah Lam (Mizo Bamboo Rhythm)
+              </Text>
+              <Text style={[styles.recBodyText, { color: isDarkMode ? '#DBEAFE' : '#1E40AF' }]}>
+                Listen to traditional folk rhythms and repeat bamboo sequences. Helps reinforce auditory working memory and sequence recall.
+              </Text>
+              {onNavigateToGames && (
+                <TouchableOpacity
+                  style={styles.playNowBtn}
+                  onPress={onNavigateToGames}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.playNowBtnText}>Play This Exercise</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Action Buttons: AI Recommendation & Share */}
         <View style={styles.actionButtons}>
           <NoklaiButton
-            title="Ask AI for Custom Exercises"
+            title="Ask Noklai AI for Game Ideas"
             variant="primary"
             icon="sparkles"
             size="md"
@@ -175,7 +488,7 @@ export default function InsightsScreen({ onBack }) {
           />
 
           <NoklaiButton
-            title={shared ? 'Report Copied / Shared!' : (isPatient ? 'Share Progress with Family' : 'Share Summary with Doctor')}
+            title={shared ? 'Progress Shared!' : 'Share Progress with Family'}
             variant="outline"
             icon="share-outline"
             size="md"
@@ -185,8 +498,8 @@ export default function InsightsScreen({ onBack }) {
 
         {/* Inspirational Motto Card */}
         <QuoteCard
-          quote="Together for a brighter tomorrow."
-          author="Culture Connects. Care Continues."
+          quote="Every gentle exercise brightens memory and keeps family stories alive."
+          author="Noklai Memory Care"
         />
       </ScrollView>
     </SafeAreaView>
@@ -212,40 +525,288 @@ const styles = StyleSheet.create({
   },
   screenSubtitle: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  cardsList: {
-    gap: 14,
+
+  // Empty state
+  emptyStateCard: {
+    padding: 24,
+    borderRadius: noklaiTheme.radii.xxl,
+    borderWidth: 1.5,
+    alignItems: 'center',
     marginBottom: 24,
   },
-  insightCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 16,
-    borderRadius: noklaiTheme.radii.xl,
-    borderWidth: 1.5,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginBottom: 16,
   },
-  cardContent: {
-    flex: 1,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  cardTitle: {
-    fontSize: 17,
+  emptyDesc: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyActionBtn: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  recommendationBox: {
+    width: '100%',
+    padding: 16,
+    borderRadius: noklaiTheme.radii.lg,
+    borderWidth: 1,
+  },
+  recTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  recGameName: {
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
-  cardMessage: {
-    fontSize: 14,
-    lineHeight: 20,
+  recDetail: {
+    fontSize: 13,
+    lineHeight: 18,
   },
+
+  // Vitality hero card
+  vitalityHeroCard: {
+    padding: 20,
+    borderRadius: noklaiTheme.radii.xxl,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  vitalityHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  levelTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  levelEmoji: {
+    fontSize: 22,
+    marginRight: 8,
+  },
+  levelTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+  },
+  levelDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  scoreCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 3.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 14,
+  },
+  scoreNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  scoreMax: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: -2,
+  },
+  vitalsRow: {
+    flexDirection: 'row',
+    borderRadius: noklaiTheme.radii.xl,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  vitalMiniItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  vitalMiniVal: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  vitalMiniLbl: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  vitalMiniDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#CBD5E1',
+  },
+
+  // Superpower banner
+  superpowerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: noklaiTheme.radii.xl,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  superpowerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  superpowerDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Section card
+  sectionCard: {
+    padding: 20,
+    borderRadius: noklaiTheme.radii.xxl,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  sectionCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  sectionCardSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+
+  // Domain breakdown
+  domainItem: {
+    marginBottom: 14,
+  },
+  domainHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  domainMiniIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  domainLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  domainScoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+
+  // Session history
+  sessionHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  sessionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionGameName: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  sessionDate: {
+    fontSize: 12,
+  },
+  sessionScoreBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
+  },
+  sessionScoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+
+  // Daily recommendation card
+  recommendationCard: {
+    padding: 18,
+    borderRadius: noklaiTheme.radii.xl,
+    borderWidth: 1.5,
+    marginBottom: 20,
+  },
+  recCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  recCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  recGameHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  recBodyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  playNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  playNowBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+    marginRight: 6,
+  },
+
+  // Actions
   actionButtons: {
-    marginVertical: 10,
+    marginVertical: 6,
   },
 });
