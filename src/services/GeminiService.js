@@ -108,7 +108,7 @@ export const formatChatHistory = (history = [], latestMessage = '') => {
       if (!msg || !msg.text) continue;
       const role = msg.sender === 'user' ? 'user' : 'model';
       // Gemini requires non-empty text
-      const cleanText = String(msg.text).trim();
+      const cleanText = String(msg.text).trim().slice(0, 4000);
       if (cleanText) {
         contents.push({
           role,
@@ -119,13 +119,14 @@ export const formatChatHistory = (history = [], latestMessage = '') => {
   }
 
   // Ensure the latest message is added as the final 'user' turn
-  if (latestMessage && latestMessage.trim()) {
+  const cleanLatestMessage = typeof latestMessage === 'string' ? latestMessage.trim() : '';
+  if (cleanLatestMessage) {
     // If the last item is already identical user message, avoid duplicate
     const lastItem = contents[contents.length - 1];
-    if (!lastItem || lastItem.role !== 'user' || lastItem.parts[0]?.text !== latestMessage.trim()) {
+    if (!lastItem || lastItem.role !== 'user' || lastItem.parts[0]?.text !== cleanLatestMessage) {
       contents.push({
         role: 'user',
-        parts: [{ text: latestMessage.trim() }],
+        parts: [{ text: cleanLatestMessage }],
       });
     }
   }
@@ -156,16 +157,30 @@ export const sendGeminiChatMessage = async ({
   history = [],
   context = {},
   model = 'gemini-2.0-flash',
-}) => {
-  const cleanMessage = (message || '').trim();
-  if (!cleanMessage) {
+  signal,
+} = {}) => {
+  const cleanMessage = typeof message === 'string' ? message.trim() : '';
+  if (!cleanMessage || cleanMessage.length > 4000) {
     return {
       success: false,
-      error: 'EMPTY_MESSAGE',
-      message: 'Please provide a non-empty message.',
+      error: cleanMessage ? 'MESSAGE_TOO_LONG' : 'EMPTY_MESSAGE',
+      message: cleanMessage
+        ? 'Please keep your message under 4,000 characters.'
+        : 'Please provide a non-empty message.',
     };
   }
 
+  if (!Array.isArray(history) || !context || typeof context !== 'object' || Array.isArray(context)) {
+    return {
+      success: false,
+      error: 'INVALID_INPUT',
+      message: 'Please provide a valid conversation request.',
+    };
+  }
+
+  const targetModel = typeof model === 'string' && /^[a-zA-Z0-9._-]{1,100}$/.test(model)
+    ? model
+    : 'gemini-2.0-flash';
   const apiKey = getApiKey();
   if (!apiKey) {
     return {
@@ -177,7 +192,7 @@ export const sendGeminiChatMessage = async ({
   }
 
   // Build system instruction & multi-turn history
-  const systemInstructionText = buildSystemInstruction(context);
+  const systemInstructionText = buildSystemInstruction(context || {});
   const contents = formatChatHistory(history, cleanMessage);
 
   if (contents.length === 0) {
@@ -198,113 +213,123 @@ export const sendGeminiChatMessage = async ({
     },
   };
 
-  // Helper to fetch with timeout
+  const maxAttempts = 3;
+  const timeoutMs = 18000;
+  const retryDelay = (attempt) => Math.min(400 * (2 ** attempt), 1500);
+  const isTransientStatus = (status) => status === 429 || status >= 500;
+  const wait = (ms) => new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener?.('abort', onAbort);
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    };
+    if (signal?.addEventListener) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+
   const fetchWithTimeout = async (targetModel) => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout
-
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller?.abort();
+    }, timeoutMs);
+    const abortListener = () => controller?.abort();
+    signal?.addEventListener?.('abort', abortListener, { once: true });
     try {
-      const response = await fetch(url, {
+      return await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: controller.signal,
+        ...(controller ? { signal: controller.signal } : {}),
       });
+    } catch (error) {
+      error.isTimeout = timedOut;
+      throw error;
+    } finally {
       clearTimeout(timeoutId);
-      return response;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      throw err;
+      signal?.removeEventListener?.('abort', abortListener);
     }
   };
 
+  const modelCandidates = [targetModel];
+  if (targetModel !== 'gemini-1.5-flash') modelCandidates.push('gemini-1.5-flash');
+
   try {
-    let response = await fetchWithTimeout(model);
+    for (let modelIndex = 0; modelIndex < modelCandidates.length; modelIndex += 1) {
+      const currentModel = modelCandidates[modelIndex];
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (signal?.aborted) {
+          return { success: false, error: 'CANCELLED', message: 'The request was cancelled.' };
+        }
+        let response;
+        try {
+          response = await fetchWithTimeout(currentModel);
+        } catch (error) {
+          const timedOut = error?.isTimeout || error?.name === 'AbortError';
+          if (signal?.aborted && !timedOut) {
+            return { success: false, error: 'CANCELLED', message: 'The request was cancelled.' };
+          }
+          if (attempt + 1 < maxAttempts) {
+            await wait(retryDelay(attempt));
+            continue;
+          }
+          return {
+            success: false,
+            error: timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
+            message: timedOut
+              ? 'The request timed out. Please try again.'
+              : 'Unable to connect to Noklai AI. Please check your connection and try again.',
+          };
+        }
 
-    // If primary model returns 404 (e.g. 2.0-flash not available in some regions), fallback to 1.5-flash
-    if (response.status === 404 && model !== 'gemini-1.5-flash') {
-      console.warn(`Gemini model ${model} returned 404. Retrying with gemini-1.5-flash...`);
-      response = await fetchWithTimeout('gemini-1.5-flash');
-    }
+        if (response.status === 404 && modelIndex === 0 && modelCandidates.length > 1) break;
+        if (!response.ok) {
+          if (isTransientStatus(response.status) && attempt + 1 < maxAttempts) {
+            await wait(retryDelay(attempt));
+            continue;
+          }
+          if (response.status === 429) {
+            return { success: false, error: 'RATE_LIMIT', message: 'Noklai AI is busy right now. Please wait a moment and try again.' };
+          }
+          if (response.status === 400 || response.status === 403) {
+            return { success: false, error: 'AUTH_ERROR', message: 'Noklai could not authenticate this request. Please check the service configuration.' };
+          }
+          return { success: false, error: 'API_ERROR', message: 'Noklai encountered a service error. Please try again.' };
+        }
 
-    // Handle HTTP errors
-    if (!response.ok) {
-      const errText = await response.text();
-      let parsedErr = {};
-      try {
-        parsedErr = JSON.parse(errText);
-      } catch (e) {}
-
-      const errorMsg = parsedErr.error?.message || errText || `HTTP ${response.status}`;
-
-      if (response.status === 429) {
-        return {
-          success: false,
-          error: 'RATE_LIMIT',
-          message: 'Noklai AI is receiving many requests right now. Please wait a moment and try again.',
-        };
+        let data;
+        try {
+          data = typeof response.json === 'function' ? await response.json() : null;
+        } catch {
+          return { success: false, error: 'INVALID_RESPONSE', message: 'Noklai received an invalid response. Please try again.' };
+        }
+        if (!data || typeof data !== 'object') {
+          return { success: false, error: 'INVALID_RESPONSE', message: 'Noklai received an invalid response. Please try again.' };
+        }
+        if (data.promptFeedback?.blockReason) {
+          return { success: false, error: 'SAFETY_BLOCKED', message: 'This topic cannot be discussed. Please reach out to your doctor or family caregiver for assistance.' };
+        }
+        const replyText = data.candidates?.[0]?.content?.parts?.find((part) => typeof part?.text === 'string')?.text;
+        if (!replyText?.trim()) {
+          return { success: false, error: 'EMPTY_RESPONSE', message: 'Noklai was unable to formulate a response. Please rephrase your question.' };
+        }
+        return { success: true, text: replyText.trim() };
       }
-
-      if (response.status === 400 || response.status === 403) {
-        return {
-          success: false,
-          error: 'AUTH_ERROR',
-          message: 'Gemini API authentication issue. Please verify that your API key is valid and has Generative AI permissions.',
-        };
-      }
-
-      return {
-        success: false,
-        error: `API_ERROR_${response.status}`,
-        message: `Noklai encountered a service error (${response.status}). Please try again.`,
-        details: errorMsg,
-      };
     }
-
-    const data = await response.json();
-
-    // Check safety blocks
-    if (data.promptFeedback?.blockReason) {
-      return {
-        success: false,
-        error: 'SAFETY_BLOCKED',
-        message: 'This topic cannot be discussed. Please reach out to your doctor or family caregiver for assistance.',
-      };
+    return { success: false, error: 'API_ERROR', message: 'Noklai encountered a service error. Please try again.' };
+  } catch {
+    if (signal?.aborted) {
+      return { success: false, error: 'CANCELLED', message: 'The request was cancelled.' };
     }
-
-    const candidate = data.candidates?.[0];
-    const replyText = candidate?.content?.parts?.[0]?.text;
-
-    if (!replyText || !replyText.trim()) {
-      return {
-        success: false,
-        error: 'EMPTY_RESPONSE',
-        message: 'Noklai was unable to formulate a response. Please rephrase your question.',
-      };
-    }
-
-    return {
-      success: true,
-      text: replyText.trim(),
-    };
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      return {
-        success: false,
-        error: 'TIMEOUT',
-        message: 'The request timed out. Please check your internet connection and try again.',
-      };
-    }
-
-    return {
-      success: false,
-      error: 'NETWORK_ERROR',
-      message: 'Unable to connect to Noklai AI. Please ensure your device is connected to the internet.',
-      details: err.message || String(err),
-    };
+    return { success: false, error: 'NETWORK_ERROR', message: 'Unable to connect to Noklai AI. Please try again.' };
   }
 };
 
@@ -314,4 +339,3 @@ export default {
   isGeminiConfigured,
   sendGeminiChatMessage,
 };
-

@@ -63,17 +63,43 @@ export default function NoklaiAIScreen({ onClose }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorInfo, setErrorInfo] = useState(null);
   const flatListRef = useRef(null);
+  const mountedRef = useRef(true);
+  const requestControllerRef = useRef(null);
+  const requestSequenceRef = useRef(0);
+
+  const isCurrentRequest = (requestId) =>
+    mountedRef.current && requestSequenceRef.current === requestId;
 
   // Load chat history from persistent storage on mount
   useEffect(() => {
     let isMounted = true;
+    requestSequenceRef.current += 1;
+    requestControllerRef.current?.abort();
+    setIsLoading(false);
+    setErrorInfo(null);
+    setMessages([{
+      id: `msg-${Date.now()}`,
+      sender: 'ai',
+      text: defaultGreeting,
+      timestamp: 'Just now',
+    }]);
+
     const loadSavedChat = async () => {
       try {
         const raw = await AsyncStorage.getItem(storageKey);
         if (raw && isMounted) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setMessages(parsed);
+          const savedMessages = Array.isArray(parsed)
+            ? parsed.filter((message) => (
+                message &&
+                typeof message.id === 'string' &&
+                (message.sender === 'user' || message.sender === 'ai') &&
+                typeof message.text === 'string' &&
+                message.text.trim().length > 0
+              )).slice(-100)
+            : [];
+          if (savedMessages.length > 0) {
+            setMessages(savedMessages);
           }
         }
       } catch (err) {
@@ -84,12 +110,19 @@ export default function NoklaiAIScreen({ onClose }) {
     return () => {
       isMounted = false;
     };
-  }, [storageKey]);
+  }, [storageKey, defaultGreeting]);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+    requestSequenceRef.current += 1;
+    requestControllerRef.current?.abort();
+  }, []);
 
   // Save chat history to storage on update
   const saveMessagesToStorage = async (newMessages) => {
     try {
-      await AsyncStorage.setItem(storageKey, JSON.stringify(newMessages));
+      const boundedMessages = newMessages.slice(-100);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(boundedMessages));
     } catch (err) {
       console.warn('Error saving chat history:', err);
     }
@@ -105,6 +138,9 @@ export default function NoklaiAIScreen({ onClose }) {
           text: 'Clear',
           style: 'destructive',
           onPress: async () => {
+            requestSequenceRef.current += 1;
+            requestControllerRef.current?.abort();
+            setIsLoading(false);
             const initial = [
               {
                 id: `msg-${Date.now()}`,
@@ -158,6 +194,12 @@ export default function NoklaiAIScreen({ onClose }) {
     const query = (textToSend || input).trim();
     if (!query || isLoading) return;
 
+    const requestId = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestId;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+
     setErrorInfo(null);
 
     const userMessage = {
@@ -207,7 +249,8 @@ export default function NoklaiAIScreen({ onClose }) {
     };
 
     try {
-      const result = await getAIResponseAsync(query, context, priorHistory);
+      const result = await getAIResponseAsync(query, context, priorHistory, controller.signal);
+      if (!isCurrentRequest(requestId)) return;
       let replyText = '';
 
       if (result.success && result.text) {
@@ -239,6 +282,7 @@ export default function NoklaiAIScreen({ onClose }) {
       setMessages(finalMessages);
       await saveMessagesToStorage(finalMessages);
     } catch (err) {
+      if (!isCurrentRequest(requestId) || err?.name === 'AbortError') return;
       console.warn('AI send exception:', err);
       setErrorInfo({
         error: 'EXCEPTION',
@@ -246,10 +290,15 @@ export default function NoklaiAIScreen({ onClose }) {
         retryQuery: query,
       });
     } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      if (isCurrentRequest(requestId)) {
+        requestControllerRef.current = null;
+        setIsLoading(false);
+        setTimeout(() => {
+          if (mountedRef.current) {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }
+        }, 100);
+      }
     }
   };
 
@@ -501,6 +550,7 @@ export default function NoklaiAIScreen({ onClose }) {
             placeholderTextColor="#9CA3AF"
             value={input}
             onChangeText={setInput}
+            maxLength={4000}
             editable={!isLoading}
             style={[
               styles.input,
@@ -691,4 +741,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

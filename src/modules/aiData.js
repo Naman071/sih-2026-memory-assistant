@@ -55,7 +55,7 @@ function detectLanguage(text) {
 /**
  * Asynchronous real Gemini AI conversation handler with multi-turn memory
  */
-export const getAIResponseAsync = async (question, contextOrPatientId = 'P001', history = []) => {
+export const getAIResponseAsync = async (question, contextOrPatientId = 'P001', history = [], options = {}) => {
   let ctx = {};
   if (typeof contextOrPatientId === 'object' && contextOrPatientId !== null) {
     ctx = contextOrPatientId;
@@ -63,12 +63,17 @@ export const getAIResponseAsync = async (question, contextOrPatientId = 'P001', 
     ctx = { patientId: contextOrPatientId || 'P001' };
   }
 
-  if (isGeminiConfigured()) {
+  const signal = options && typeof options.addEventListener === 'function'
+    ? options
+    : options?.signal;
+
+  if (isGeminiConfigured() && typeof question === 'string' && question.trim()) {
     try {
       const geminiResult = await sendGeminiChatMessage({
         message: question,
         history,
         context: ctx,
+        signal,
       });
 
       if (geminiResult.success && geminiResult.text) {
@@ -90,7 +95,7 @@ export const getAIResponseAsync = async (question, contextOrPatientId = 'P001', 
       return {
         success: false,
         error: 'EXCEPTION',
-        message: err.message || 'Error reaching Gemini',
+        message: 'Unable to connect to Noklai AI. Please try again.',
         fallback: getAIResponse(question, ctx),
         source: 'error',
       };
