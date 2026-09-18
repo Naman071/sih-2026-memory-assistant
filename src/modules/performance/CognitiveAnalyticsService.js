@@ -40,7 +40,7 @@ export const COGNITIVE_DOMAINS = {
     icon: 'eye-outline',
     color: '#D97706', // Warm Amber
     description: 'Recalling visual patterns, dancer rhythms, and sequence changes',
-    games: ['suh_tah_lam'],
+    games: ['suh_tah_lam', 'suhTahLam'],
   },
   SPATIAL_COORDINATION: {
     id: 'spatial_coordination',
@@ -58,7 +58,7 @@ export const COGNITIVE_DOMAINS = {
     icon: 'flash-outline',
     color: '#059669', // Emerald Green
     description: 'Dynamic visual focus, trajectory tracking, and target response',
-    games: ['dhop_khel'],
+    games: ['dhop_khel', 'dhopkhel'],
   },
   EPISODIC_RECALL: {
     id: 'episodic_recall',
@@ -67,7 +67,7 @@ export const COGNITIVE_DOMAINS = {
     icon: 'book-outline',
     color: '#7C3AED', // Purple
     description: 'Recalling narrative details, cultural scenes, and heritage memories',
-    games: ['northeast_memory', 'memory_stories'],
+    games: ['northeast_memory', 'northeast', 'memory_stories', 'stories'],
   },
 };
 
@@ -328,15 +328,13 @@ export class CognitiveAnalyticsService {
         typeof s.questionsTotal === 'number' && s.questionsTotal > 0
           ? s.questionsTotal
           : typeof s.accuracy === 'number'
-          ? 1
+          ? 100
           : 0;
       const correctAttempts =
         typeof s.questionsCorrect === 'number' && s.questionsCorrect >= 0
           ? s.questionsCorrect
           : typeof s.accuracy === 'number'
-          ? s.accuracy >= 50
-            ? 1
-            : 0
+          ? Math.max(0, Math.min(100, Math.round(s.accuracy)))
           : 0;
 
       return {
@@ -502,9 +500,12 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
   _resolveDomain(gameId, providedDomain) {
     if (providedDomain) return providedDomain;
     if (gameId === 'suh_tah_lam') return 'visual_memory';
+    if (gameId === 'suh_tah_lam' || gameId === 'suhTahLam') return 'visual_memory';
     if (gameId === 'ubilakapki') return 'spatial_coordination';
     if (gameId === 'dhop_khel') return 'attention_focus';
     if (gameId === 'northeast_memory' || gameId === 'memory_stories') return 'episodic_recall';
+    if (gameId === 'dhop_khel' || gameId === 'dhopkhel') return 'attention_focus';
+    if (gameId === 'northeast_memory' || gameId === 'northeast' || gameId === 'memory_stories' || gameId === 'stories') return 'episodic_recall';
     return 'visual_memory';
   }
 
@@ -514,14 +515,18 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
   _getHumanGameName(gameId) {
     switch (gameId) {
       case 'suh_tah_lam':
+      case 'suhTahLam':
         return 'Suh Tah Lam (Bamboo Rhythm)';
       case 'ubilakapki':
         return 'Ubilakapki Coconut Toss';
       case 'dhop_khel':
+      case 'dhopkhel':
         return 'Dhopkhel Memory';
       case 'northeast_memory':
+      case 'northeast':
         return 'Sinaki Sthan';
       case 'memory_stories':
+      case 'stories':
         return 'Xuworoni Kotha';
       default:
         return 'Cognitive Exercise';
@@ -540,7 +545,7 @@ Cognitive Vitality Index is a gameplay progress indicator based on completed cog
     };
 
     sessions.forEach((s) => {
-      const d = s.domain || 'visual_memory';
+      const d = s.domain || this._resolveDomain(s.gameId);
       if (domainBuckets[d]) {
         domainBuckets[d].push(s);
       }

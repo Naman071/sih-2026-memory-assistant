@@ -18,7 +18,13 @@
  */
 
 import { Platform } from 'react-native';
-import * as ExpoAudio from 'expo-audio';
+
+let ExpoAudio = null;
+try {
+  ExpoAudio = require('expo-audio');
+} catch (_) {
+  ExpoAudio = null;
+}
 
 // Static bundle asset registries grouped by game domain
 const ASSETS_COMMON = {
@@ -67,6 +73,7 @@ class AudioEngineCore {
     this.sfxVolume = 0.90;
     this.lastPlayedTimes = new Map();
     this.expoAudio = ExpoAudio;
+    this.expoAudio = ExpoAudio?.default || ExpoAudio;
     this.isInitialized = false;
 
     this.initAudioMode();

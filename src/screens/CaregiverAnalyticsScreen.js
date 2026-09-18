@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   StyleSheet,
   ActivityIndicator,
   Share,
@@ -12,23 +11,26 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePatient } from '../context/PatientContext';
+import NoklaiContext from '../noklai/context/NoklaiContext';
 import { cognitiveAnalytics, COGNITIVE_DOMAINS } from '../modules/performance/CognitiveAnalyticsService';
 
 export default function CaregiverAnalyticsScreen() {
   const { theme, isDarkMode } = useTheme();
   const { t } = useLanguage();
-  const {
-    patientId,
-    patientName,
-    patientAge,
-    caregiverName,
-    caregiverPhone,
-    relationship,
-  } = usePatient();
+  const noklai = useContext(NoklaiContext);
+  const patient = usePatient();
+
+  const patientId = noklai?.activePatientId || patient?.patientId || 'P001';
+  const patientName = noklai?.activePatientName || patient?.patientName;
+  const patientAge = noklai?.activePatient?.age || patient?.patientAge;
+  const caregiverName = noklai?.caregiverName || patient?.caregiverName;
+  const caregiverPhone = noklai?.caregiverPhone || patient?.caregiverPhone;
+  const relationship = patient?.relationship;
 
   const [timeframe, setTimeframe] = useState('7d'); // '7d' | '30d' | 'all'
   const [dashboardData, setDashboardData] = useState(null);

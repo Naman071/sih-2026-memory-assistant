@@ -21,14 +21,14 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Platform,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ThreeSceneView } from './components/ThreeSceneView.js';
+import { NativeStageView } from './components/NativeStageView.js';
 import { PauseMenu } from './components/PauseMenu.js';
 import { SessionManager } from './engine/SessionManager.js';
 import { useTheme } from '../../context/ThemeContext';
@@ -412,7 +412,7 @@ export default function UbilakapkiGame({ onExit, patientId: propPatientId }) {
         >
           <View style={styles.stageContent}>
             {/* Rectangular Main Game Board */}
-            <ThreeSceneView
+            <NativeStageView
               ref={stageRef}
               playerCount={3}
               regionId="assam"

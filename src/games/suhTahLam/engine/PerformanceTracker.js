@@ -16,6 +16,7 @@ import { CognitiveProfile } from './CognitiveProfile.js';
 import { DifficultyEngine, defaultDifficultyEngine } from './DifficultyEngine.js';
 import { LocalPerformanceStorage, defaultLocalStorage } from '../storage/LocalPerformanceStorage.js';
 import { validateRoundResult } from './CognitiveVitalityIndex.js';
+import { cognitiveAnalytics } from '../../../modules/performance/CognitiveAnalyticsService.js';
 
 export class PerformanceTracker {
   constructor({
@@ -339,6 +340,33 @@ export class PerformanceTracker {
       });
     } catch (err) {
       console.error('[PerformanceTracker] Failed to save completed round:', err);
+    }
+
+    // Record into unified caregiver cognitive analytics service
+    try {
+      await cognitiveAnalytics.recordGameSession({
+        gameId: this.gameId,
+        gameName: 'Suh Tah Lam (Bamboo Rhythm)',
+        domain: 'visual_memory',
+        difficulty: completedRound.difficulty,
+        durationSec: completedRound.durationSec || 0,
+        questionsTotal: completedRound.attempts,
+        questionsCorrect: completedRound.correctAttempts,
+        accuracy: typeof completedRound.accuracy === 'number' ? Math.round(completedRound.accuracy * 100) : null,
+        responseTimeSec:
+          typeof completedRound.responseTimeMs === 'number' && completedRound.responseTimeMs > 0
+            ? Math.round((completedRound.responseTimeMs / 1000) * 10) / 10
+            : null,
+        score: typeof completedRound.score === 'number' ? completedRound.score : Math.round((completedRound.performanceScore || 0) * 10),
+        patientId: this.playerId,
+        metadata: {
+          sessionId: completedRound.sessionId || null,
+          roundNumber: completedRound.roundNumber,
+          eligibleForCVI: completedRound.eligibleForCVI,
+        },
+      });
+    } catch (e) {
+      console.error('[SuhTahLam PerformanceTracker] Exception recording session in cognitiveAnalytics:', e);
     }
 
     this.activeRound = null;

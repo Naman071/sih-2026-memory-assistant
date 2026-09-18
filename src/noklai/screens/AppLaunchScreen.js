@@ -3,23 +3,25 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
   ScrollView,
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../theme/noklaiTheme';
 import { useTheme } from '../../context/ThemeContext';
 import { useNoklai } from '../context/NoklaiContext';
 import NoklaiButton from '../components/NoklaiButton';
 
-const { width } = Dimensions.get('window');
-
 export default function AppLaunchScreen() {
   const { isDarkMode } = useTheme();
-  const { setCurrentStep, hasCompletedSetup } = useNoklai();
+  const { width, height } = useWindowDimensions();
+  const { setCurrentStep, selectRole, hasCompletedSetup } = useNoklai();
+
+  const contentWidth = Math.min(width - 32, 480);
+  const heroHeight = Math.min(Math.max(height * 0.28, 160), 240);
 
   return (
     <SafeAreaView
@@ -32,44 +34,24 @@ export default function AppLaunchScreen() {
         },
       ]}
     >
-      {/* Background Cultural Hero Image with Low Transparency */}
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-        <Image
-          source={require('../../../assets/launch_hero.jpg')}
-          style={[
-            styles.backgroundImage,
-            {
-              // Low transparency (high opacity ~0.85) so the scenic mountains and elders are rich & vibrant
-              opacity: isDarkMode ? 0.82 : 0.85,
-            },
-          ]}
-          resizeMode="cover"
-        />
-        {/* Soft Vignette Overlay to maintain contrast for top brand and bottom action cards */}
-        <View
-          style={[
-            styles.vignetteOverlay,
-            {
-              backgroundColor: isDarkMode
-                ? 'rgba(15, 23, 42, 0.40)'
-                : 'rgba(255, 255, 255, 0.20)',
-            },
-          ]}
-        />
-      </View>
-
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        bounces={true}
       >
-        {/* Top Brand Header Pill */}
+        {/* Brand Header */}
         <View
           style={[
             styles.brandCard,
             {
-              backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.8)',
+              width: contentWidth,
+              backgroundColor: isDarkMode
+                ? noklaiTheme.colors.cardBackgroundDark
+                : noklaiTheme.colors.cardBackground,
+              borderColor: isDarkMode
+                ? noklaiTheme.colors.borderDark
+                : noklaiTheme.colors.border,
             },
           ]}
         >
@@ -96,16 +78,37 @@ export default function AppLaunchScreen() {
           </Text>
         </View>
 
-        {/* Scenic Center Space - Unobstructed view of the grandparents and Himalayan mountains */}
-        <View style={styles.heroSpace} />
+        {/* Hero Illustration / Photo Card - Properly Framed & Proportioned */}
+        <View
+          style={[
+            styles.heroCard,
+            {
+              width: contentWidth,
+              height: heroHeight,
+              backgroundColor: isDarkMode ? '#1E293B' : '#DCFCE7',
+              borderColor: isDarkMode ? '#334155' : '#BBF7D0',
+            },
+          ]}
+        >
+          <Image
+            source={require('../../../assets/launch_hero.png')}
+            style={styles.heroImage}
+            resizeMode="contain"
+          />
+        </View>
 
-        {/* Bottom Card with Cultural Motto & Get Started Button */}
+        {/* Action & Welcome Card */}
         <View
           style={[
             styles.bottomCard,
             {
-              backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.8)',
+              width: contentWidth,
+              backgroundColor: isDarkMode
+                ? noklaiTheme.colors.cardBackgroundDark
+                : noklaiTheme.colors.cardBackground,
+              borderColor: isDarkMode
+                ? noklaiTheme.colors.borderDark
+                : noklaiTheme.colors.border,
             },
           ]}
         >
@@ -114,7 +117,9 @@ export default function AppLaunchScreen() {
             style={[
               styles.mottoBadge,
               {
-                backgroundColor: isDarkMode ? 'rgba(74, 222, 128, 0.15)' : 'rgba(22, 163, 74, 0.12)',
+                backgroundColor: isDarkMode
+                  ? 'rgba(74, 222, 128, 0.15)'
+                  : 'rgba(22, 163, 74, 0.12)',
               },
             ]}
           >
@@ -140,13 +145,13 @@ export default function AppLaunchScreen() {
           <Text
             style={[
               styles.caringSubline,
-              { color: isDarkMode ? '#CBD5E1' : '#4B5563' },
+              { color: isDarkMode ? '#94A3B8' : '#64748B' },
             ]}
           >
-            A culturally familiar memory assistance platform for elderly people and their caregivers.
+            Culturally familiar memory exercises and continuous daily tracking for elders and caregivers.
           </Text>
 
-          {/* Action Button */}
+          {/* Primary Action Button */}
           <View style={styles.actionContainer}>
             <NoklaiButton
               title="Get Started"
@@ -155,6 +160,44 @@ export default function AppLaunchScreen() {
               iconRight="arrow-forward"
               onPress={() => setCurrentStep(hasCompletedSetup ? 'role_select' : 'login')}
             />
+
+            {/* Quick Direct Role Buttons */}
+            <View style={styles.quickRolesRow}>
+              <TouchableOpacity
+                onPress={() => selectRole('caregiver')}
+                style={[
+                  styles.quickRoleBtn,
+                  {
+                    backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9',
+                    borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="shield-checkmark" size={18} color="#5B409E" />
+                <Text style={[styles.quickRoleText, { color: isDarkMode ? '#E2E8F0' : '#1E293B' }]}>
+                  Caregiver
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => selectRole('patient')}
+                style={[
+                  styles.quickRoleBtn,
+                  {
+                    backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9',
+                    borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person" size={18} color="#16A34A" />
+                <Text style={[styles.quickRoleText, { color: isDarkMode ? '#E2E8F0' : '#1E293B' }]}>
+                  Senior / Patient
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {hasCompletedSetup && (
               <TouchableOpacity
                 onPress={() => setCurrentStep('login')}
@@ -169,7 +212,7 @@ export default function AppLaunchScreen() {
                     textDecorationLine: 'underline',
                   }}
                 >
-                  Change Caregiver & Patient Details
+                  Change Profile Details
                 </Text>
               </TouchableOpacity>
             )}
@@ -184,37 +227,30 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
+  scrollView: {
+    flex: 1,
     width: '100%',
-    height: '100%',
-  },
-  vignetteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
   },
   container: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 28,
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
     alignItems: 'center',
-    minHeight: '100%',
+    justifyContent: 'space-between',
+    gap: 14,
   },
   brandCard: {
-    width: width - 40,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 18,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   logoRow: {
     flexDirection: 'row',
@@ -222,16 +258,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   logoBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
   },
   logoTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
@@ -241,22 +277,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  heroSpace: {
-    flex: 1,
-    minHeight: 180,
+  heroCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
   bottomCard: {
-    width: width - 40,
-    borderRadius: 28,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   mottoBadge: {
     flexDirection: 'row',
@@ -265,7 +312,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 20,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   mottoText: {
     fontSize: 11,
@@ -273,7 +320,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   caringHeadline: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
     marginBottom: 4,
@@ -282,10 +329,31 @@ const styles = StyleSheet.create({
   caringSubline: {
     fontSize: 13,
     fontWeight: '500',
-    marginBottom: 18,
+    marginBottom: 16,
     textAlign: 'center',
+    lineHeight: 18,
   },
   actionContainer: {
     width: '100%',
+  },
+  quickRolesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    width: '100%',
+  },
+  quickRoleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  quickRoleText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

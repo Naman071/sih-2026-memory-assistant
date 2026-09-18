@@ -34,8 +34,8 @@ assert(
   'RoleSelectionScreen has large "I am a Patient" and "I am a Caregiver" options'
 );
 assert(
-  launchFile.includes('A culturally familiar memory assistance platform for elderly people and their caregivers.'),
-  'AppLaunchScreen includes platform tagline'
+  launchFile.includes('SIH 2026 Dementia Care'),
+  'AppLaunchScreen shows SIH 2026 Dementia Care badge'
 );
 
 console.log('\n--- STEP 2: PATIENT DEMO FLOW ---');

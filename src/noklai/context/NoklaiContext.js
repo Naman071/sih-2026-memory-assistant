@@ -38,6 +38,7 @@ export function NoklaiProvider({ children }) {
     caregiverPhone: existingCaregiverPhone,
     relationship: existingRelationship,
     savePatientSetup,
+    selectPatient,
   } = usePatient();
 
   const { isDarkMode } = useTheme();
@@ -367,13 +368,18 @@ export function NoklaiProvider({ children }) {
         // Set active patient if current is default and remote has different ID
         if ((!activePatientId || activePatientId === 'P001') && remotePatients[0].patient_id && remotePatients[0].patient_id !== activePatientId) {
           setActivePatientId(remotePatients[0].patient_id);
-          if (remotePatients[0].name) setActivePatientName(remotePatients[0].name);
+          if (remotePatients[0].name) {
+            setActivePatientName(remotePatients[0].name);
+            if (typeof selectPatient === 'function') {
+              selectPatient(remotePatients[0].patient_id, remotePatients[0].name);
+            }
+          }
         }
       }
     } catch (err) {
       console.warn('Could not load linked patients from Supabase:', err);
     }
-  }, [caregiverPhone, activePatientId]);
+  }, [caregiverPhone, activePatientId, selectPatient]);
 
   // Link a Patient by Invite Code (e.g. "P001" or "P_1789648234497")
   const linkPatientByInviteCode = useCallback(async (inviteCode) => {
@@ -418,6 +424,9 @@ export function NoklaiProvider({ children }) {
 
       setActivePatientId(formatted.id);
       setActivePatientName(formatted.name);
+      if (typeof selectPatient === 'function') {
+        selectPatient(formatted.id, formatted.name);
+      }
 
       // Force refresh analytics
       setTimeout(() => {
@@ -552,7 +561,10 @@ export function NoklaiProvider({ children }) {
     setPatients((prev) => [...prev, formatted]);
     setActivePatientId(formatted.id);
     setActivePatientName(formatted.name);
-  }, []);
+    if (typeof selectPatient === 'function') {
+      selectPatient(formatted.id, formatted.name);
+    }
+  }, [selectPatient]);
 
   // Computed Real Stats
   const computedStats = useMemo(() => {

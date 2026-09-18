@@ -4,19 +4,20 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { noklaiTheme } from '../theme/noklaiTheme';
 import { useTheme } from '../../context/ThemeContext';
 import { useNoklai } from '../context/NoklaiContext';
 import NoklaiButton from '../components/NoklaiButton';
 import NoklaiCard from '../components/NoklaiCard';
+import { validateLoginRequirements } from '../../utils/phoneValidation';
 
 export default function NoklaiLoginScreen() {
   const { isDarkMode } = useTheme();
@@ -40,22 +41,25 @@ export default function NoklaiLoginScreen() {
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleContinue = async () => {
-    if (!caregiverName.trim()) {
-      setErrorMessage('Please enter the caregiver name.');
-      return;
-    }
-    if (!patientName.trim()) {
-      setErrorMessage("Please enter the patient's name.");
+    const validation = validateLoginRequirements({
+      caregiverName,
+      patientName,
+      caregiverPhone,
+      patientPhone,
+    });
+
+    if (!validation.isValid) {
+      setErrorMessage(validation.errorMessage);
       return;
     }
 
     setErrorMessage('');
     await saveCredentials({
       caregiverName: caregiverName.trim(),
-      caregiverPhone: caregiverPhone.trim(),
+      caregiverPhone: validation.normalizedCaregiverPhone,
       caregiverGender,
       patientName: patientName.trim(),
-      patientPhone: patientPhone.trim(),
+      patientPhone: validation.normalizedPatientPhone,
       patientGender,
     });
 

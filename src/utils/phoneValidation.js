@@ -84,6 +84,7 @@ export function formatIndianPhone(phone) {
  *   isValid: boolean,
  *   errorMessage: string,
  *   errorField?: 'caregiverName' | 'patientName' | 'caregiverPhone' | 'patientPhone' | 'bothPhones' | 'phoneRequired',
+ *   errorField?: 'caregiverName' | 'patientName' | 'caregiverPhone' | 'patientPhone' | 'bothPhones' | 'phoneRequired' | null,
  *   normalizedCaregiverPhone: string,
  *   normalizedPatientPhone: string,
  *   formattedCaregiverPhone: string,
