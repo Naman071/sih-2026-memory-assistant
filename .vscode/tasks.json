@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Expo Web",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"web"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Install App Dependencies",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

@@ -11,7 +11,7 @@ import { getReminders } from '../modules/database';
 export default function HomeScreen() {
   const navigation = useNavigation();
   const { theme, isDarkMode } = useTheme();
-  const { patientId, patientName, caregiverName, caregiverPhone } = usePatient();
+  const { patientId, patientName } = usePatient();
   const { t, currentLanguage } = useLanguage();
   const [reminders, setReminders] = useState([]);
   const [loadingReminders, setLoadingReminders] = useState(true);
@@ -102,7 +102,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header Hero Section */}
+        {/* Header Hero Section: Greeting & Patient Info */}
         <View style={styles.heroSection}>
           <View style={styles.heroMetaRow}>
             <Text style={[styles.dateText, { color: theme.subText }]}>
@@ -141,49 +141,9 @@ export default function HomeScreen() {
           <Text style={[styles.patientNameHeading, { color: theme.text }]} numberOfLines={2}>
             {patientName || defaultFriend}
           </Text>
-
-          {caregiverName || caregiverPhone ? (
-            <View
-              style={[
-                styles.caregiverCard,
-                {
-                  backgroundColor: theme.cardBackground,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.caregiverIconContainer,
-                  { backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF' },
-                ]}
-              >
-                <Ionicons name="shield-checkmark" size={18} color={theme.primary} />
-              </View>
-              <View style={styles.caregiverDetails}>
-                <Text style={[styles.caregiverRoleLabel, { color: theme.subText }]}>
-                  {t('home.primaryCaregiver') || 'Primary Caregiver'}
-                </Text>
-                <Text style={[styles.caregiverNameText, { color: theme.text }]} numberOfLines={1}>
-                  {caregiverName || t('home.assignedCaregiver') || 'Assigned Caregiver'}
-                </Text>
-              </View>
-              {caregiverPhone ? (
-                <View
-                  style={[
-                    styles.caregiverPhonePill,
-                    { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
-                  ]}
-                >
-                  <Ionicons name="call-outline" size={14} color={theme.primary} style={{ marginRight: 6 }} />
-                  <Text style={[styles.caregiverPhoneText, { color: theme.text }]}>{caregiverPhone}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
         </View>
 
-        {/* Daily Schedule Card */}
+        {/* Reminders / Daily Schedule Card - Top Position Directly Below Greeting */}
         <View
           style={[
             styles.card,
@@ -262,7 +222,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Action Tiles */}
+        {/* Action Tiles (Brain Exercises & Family & Loved Ones) - Placed Below Reminders */}
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[
@@ -327,20 +287,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 36,
+    paddingTop: 10,
+    paddingBottom: 32,
   },
   heroSection: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   heroMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
@@ -364,68 +324,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   greetingSalutation: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 1,
     letterSpacing: 0.2,
   },
   patientNameHeading: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: 'bold',
     letterSpacing: -0.3,
-    marginBottom: 16,
-    lineHeight: 40,
-  },
-  caregiverCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  caregiverIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  caregiverDetails: {
-    flex: 1,
-  },
-  caregiverRoleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  caregiverNameText: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginTop: 1,
-  },
-  caregiverPhonePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  caregiverPhoneText: {
-    fontSize: 14,
-    fontWeight: '600',
+    marginBottom: 2,
+    lineHeight: 38,
   },
   card: {
-    padding: 20,
+    padding: 18,
     borderRadius: 22,
     borderWidth: 1,
-    marginBottom: 18,
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -436,21 +351,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   cardTitle: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 0.2,
   },
   countBadge: {
     backgroundColor: '#2563EB',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
     borderRadius: 12,
   },
   countBadgeText: {
@@ -461,15 +376,15 @@ const styles = StyleSheet.create({
   reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(156, 163, 175, 0.25)',
   },
   reminderTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '500',
     flex: 1,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   timeBadge: {
     flexDirection: 'row',
@@ -484,7 +399,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   loadingContainer: {
-    paddingVertical: 28,
+    paddingVertical: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -494,14 +409,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   emptyContainer: {
-    paddingVertical: 28,
+    paddingVertical: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
   },
   buttonRow: {
     flexDirection: 'row',

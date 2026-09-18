@@ -9,7 +9,6 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,11 +28,8 @@ export default function PatientHomeScreen({
 }) {
   const { isDarkMode } = useTheme();
   const {
-    activePatientId,
     activePatientName,
     patientAvatar,
-    caregiverName,
-    caregiverAvatar,
     reminders,
     loadingReminders,
     addReminder,
@@ -45,17 +41,6 @@ export default function PatientHomeScreen({
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderTime, setReminderTime] = useState('');
-
-  const handleShareCode = async () => {
-    const code = activePatientId || 'P001';
-    try {
-      await Share.share({
-        message: `Connect with me on SIH Memory Assistant! My Patient Connection Code is: ${code}`,
-      });
-    } catch (e) {
-      Alert.alert('Connection Code', `Your Patient Code is: ${code}`);
-    }
-  };
 
   const handleSaveReminder = () => {
     if (!reminderTitle.trim()) {
@@ -117,6 +102,105 @@ export default function PatientHomeScreen({
             <Text style={{ fontSize: 36 }}>{patientAvatar}</Text>
           </View>
         </View>
+
+        {/* Daily Schedule / Reminders Section - Placed on top directly above action cards */}
+        <View style={styles.sectionHeadingRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="calendar" size={22} color="#16A34A" style={{ marginRight: 8 }} />
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+              ]}
+            >
+              My Day & Reminders
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.addReminderHeaderBtn}
+            onPress={() => setAddModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add-circle" size={18} color="#16A34A" style={{ marginRight: 4 }} />
+            <Text style={styles.addReminderHeaderText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+
+        <NoklaiCard style={styles.scheduleCard} padded={false}>
+          {loadingReminders ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="small" color="#16A34A" />
+              <Text style={[styles.emptyText, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
+                Checking reminders...
+              </Text>
+            </View>
+          ) : reminders && reminders.length > 0 ? (
+            reminders.map((item, index) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.routineRow,
+                  index < reminders.length - 1 && styles.routineRowBorder,
+                  item.done && { backgroundColor: isDarkMode ? '#16281E' : '#F4FBF6' },
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => toggleRoutineItem(item.id)}
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={26}
+                    color={item.done ? '#16A34A' : '#9CA3AF'}
+                    style={{ marginRight: 14 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.routineTitle,
+                        {
+                          color: item.done
+                            ? isDarkMode ? '#9CA3AF' : '#6B7280'
+                            : isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary,
+                          textDecorationLine: item.done ? 'line-through' : 'none',
+                        },
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
+                    {item.time ? <Text style={styles.routineTime}>{item.time}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => deleteReminder(item.id)}
+                  style={styles.deleteReminderBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="calendar-outline" size={36} color="#9CA3AF" style={{ marginBottom: 6 }} />
+              <Text style={[styles.emptyText, { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary }]}>
+                No reminders scheduled
+              </Text>
+              <Text style={[styles.emptySubText, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
+                You haven&apos;t added any reminders yet. Tap &quot;Add&quot; to set medication or routine reminders.
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyAddBtn}
+                onPress={() => setAddModalVisible(true)}
+              >
+                <Text style={styles.emptyAddBtnText}>+ Add First Reminder</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </NoklaiCard>
 
         {/* 4 Large Patient Action Cards */}
         <View style={styles.fourCardsContainer}>
@@ -237,186 +321,6 @@ export default function PatientHomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Connected Caregiver Card */}
-        <View
-          style={[
-            styles.caregiverPillCard,
-            {
-              backgroundColor: isDarkMode ? '#1E2430' : '#FFFFFF',
-              borderColor: isDarkMode ? '#2D3545' : '#E8EAE3',
-            },
-            !isDarkMode && noklaiTheme.shadows.card,
-          ]}
-        >
-          <View style={styles.caregiverIconCircle}>
-            <Ionicons name="shield-checkmark" size={20} color="#16A34A" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.caregiverRoleLabel}>Primary Caregiver</Text>
-            <Text
-              style={[
-                styles.caregiverName,
-                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
-              ]}
-            >
-              {caregiverName || 'Caregiver'} is connected with you
-            </Text>
-          </View>
-        </View>
-
-        {/* Caregiver Connection Code Card */}
-        <View
-          style={[
-            styles.codeCard,
-            {
-              backgroundColor: isDarkMode ? '#132117' : '#F0FDF4',
-              borderColor: isDarkMode ? '#1E3A27' : '#BBF7D0',
-            },
-            !isDarkMode && noklaiTheme.shadows.card,
-          ]}
-        >
-          <View style={styles.codeCardTop}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <View style={styles.codeIconCircle}>
-                <Ionicons name="key" size={16} color="#16A34A" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={[styles.codeCardTitle, { color: isDarkMode ? '#DCFCE7' : '#14532D' }]}>
-                  Caregiver Connection Code
-                </Text>
-                <Text style={[styles.codeCardSub, { color: isDarkMode ? '#86EFAC' : '#166534' }]}>
-                  Share with caregiver to link & view your progress
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.shareBtn}
-              activeOpacity={0.8}
-              onPress={handleShareCode}
-            >
-              <Ionicons name="share-social-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-              <Text style={styles.shareBtnText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View
-            style={[
-              styles.codeDisplayBox,
-              {
-                backgroundColor: isDarkMode ? '#0D1710' : '#FFFFFF',
-                borderColor: isDarkMode ? '#22543D' : '#86EFAC',
-              },
-            ]}
-          >
-            <Text style={[styles.codeDisplayText, { color: isDarkMode ? '#4ADE80' : '#15803D' }]}>
-              {activePatientId || 'P001'}
-            </Text>
-            <Text style={[styles.codeTapHint, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>
-              Your Unique ID
-            </Text>
-          </View>
-        </View>
-
-        {/* Daily Schedule / Reminders Section - NO FAKE DEFAULTS */}
-        <View style={styles.sectionHeadingRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="calendar" size={22} color="#16A34A" style={{ marginRight: 8 }} />
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
-              ]}
-            >
-              My Day & Reminders
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.addReminderHeaderBtn}
-            onPress={() => setAddModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add-circle" size={18} color="#16A34A" style={{ marginRight: 4 }} />
-            <Text style={styles.addReminderHeaderText}>Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <NoklaiCard style={styles.scheduleCard} padded={false}>
-          {loadingReminders ? (
-            <View style={styles.emptyContainer}>
-              <ActivityIndicator size="small" color="#16A34A" />
-              <Text style={[styles.emptyText, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
-                Checking reminders...
-              </Text>
-            </View>
-          ) : reminders && reminders.length > 0 ? (
-            reminders.map((item, index) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.routineRow,
-                  index < reminders.length - 1 && styles.routineRowBorder,
-                  item.done && { backgroundColor: isDarkMode ? '#16281E' : '#F4FBF6' },
-                ]}
-              >
-                <TouchableOpacity
-                  onPress={() => toggleRoutineItem(item.id)}
-                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={26}
-                    color={item.done ? '#16A34A' : '#9CA3AF'}
-                    style={{ marginRight: 14 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.routineTitle,
-                        {
-                          color: item.done
-                            ? isDarkMode ? '#9CA3AF' : '#6B7280'
-                            : isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary,
-                          textDecorationLine: item.done ? 'line-through' : 'none',
-                        },
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                    {item.time ? <Text style={styles.routineTime}>{item.time}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => deleteReminder(item.id)}
-                  style={styles.deleteReminderBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="calendar-outline" size={36} color="#9CA3AF" style={{ marginBottom: 6 }} />
-              <Text style={[styles.emptyText, { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary }]}>
-                No reminders scheduled
-              </Text>
-              <Text style={[styles.emptySubText, { color: isDarkMode ? '#9CA3AF' : '#656F7D' }]}>
-                You haven&apos;t added any reminders yet. Tap &quot;Add&quot; to set medication or routine reminders.
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyAddBtn}
-                onPress={() => setAddModalVisible(true)}
-              >
-                <Text style={styles.emptyAddBtnText}>+ Add First Reminder</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </NoklaiCard>
-
         {/* Inspirational Quote Card */}
         <QuoteCard
           quote="Small steps make a big difference."
@@ -508,7 +412,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   greetingSub: {
     fontSize: 16,
@@ -568,34 +472,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  caregiverPillCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: noklaiTheme.radii.xl,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  caregiverIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  caregiverRoleLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#16A34A',
-    textTransform: 'uppercase',
-  },
-  caregiverName: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 1,
-  },
   gamesHeroCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -641,7 +517,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 18,
+    marginTop: 4,
     marginBottom: 12,
   },
   sectionTitle: {
@@ -664,6 +540,7 @@ const styles = StyleSheet.create({
   scheduleCard: {
     borderRadius: noklaiTheme.radii.xl,
     overflow: 'hidden',
+    marginBottom: 20,
   },
   routineRow: {
     flexDirection: 'row',
@@ -750,65 +627,5 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     marginTop: 10,
-  },
-  codeCard: {
-    borderRadius: noklaiTheme.radii.xl,
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  codeCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  codeIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  codeCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  codeCardSub: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  shareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#16A34A',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: noklaiTheme.radii.full,
-  },
-  shareBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  codeDisplayBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: noklaiTheme.radii.lg,
-    borderWidth: 1,
-  },
-  codeDisplayText: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  codeTapHint: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
   },
 });

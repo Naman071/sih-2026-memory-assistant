@@ -359,47 +359,6 @@ export default function CaregiverHomeScreen({ onNavigateToProgress, onNavigateTo
           </View>
         </View>
 
-        {/* Supportive Suggestions for Caregivers */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
-            ]}
-          >
-            Supportive Suggestions for Caregiver
-          </Text>
-        </View>
-
-        <NoklaiCard style={styles.suggestionsCard}>
-          <View style={styles.suggestionItem}>
-            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
-            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
-              Encourage the patient to complete one short activity.
-            </Text>
-          </View>
-
-          <View style={styles.suggestionItem}>
-            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
-            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
-              Use familiar family photos or stories for memory conversations.
-            </Text>
-          </View>
-
-          <View style={styles.suggestionItem}>
-            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
-            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
-              Allow the patient to take breaks.
-            </Text>
-          </View>
-
-          <View style={[styles.suggestionItem, { marginBottom: 0 }]}>
-            <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={styles.suggestionBullet} />
-            <Text style={[styles.suggestionText, { color: isDarkMode ? '#E5E7EB' : '#374151' }]}>
-              Celebrate effort instead of focusing only on scores.
-            </Text>
-          </View>
-        </NoklaiCard>
 
         {/* Clear Non-Medical Disclaimer */}
         <View
@@ -657,25 +616,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     flex: 1,
   },
-  suggestionsCard: {
-    padding: 16,
-    borderRadius: noklaiTheme.radii.xl,
-    marginBottom: 16,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  suggestionBullet: {
-    marginRight: 10,
-    marginTop: 1,
-  },
-  suggestionText: {
-    fontSize: 13,
-    lineHeight: 18,
-    flex: 1,
-  },
+
   disclaimerBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
