@@ -213,6 +213,84 @@ export const sendGeminiChatMessage = async ({
     },
   };
 
+  return runGeminiRequest(requestBody, signal, targetModel);
+};
+
+/**
+ * Send a recorded voice clip straight to Gemini. Gemini transcribes the
+ * audio AND generates the reply in a single call, so no separate
+ * speech-to-text step is needed.
+ */
+export const sendGeminiAudioMessage = async ({
+  audioBase64,
+  mimeType = 'audio/m4a',
+  history = [],
+  context = {},
+  model = 'gemini-2.0-flash',
+  signal,
+} = {}) => {
+  if (typeof audioBase64 !== 'string' || audioBase64.length < 10) {
+    return {
+      success: false,
+      error: 'EMPTY_AUDIO',
+      message: 'No audio was recorded. Please try again.',
+    };
+  }
+
+  if (!Array.isArray(history) || !context || typeof context !== 'object' || Array.isArray(context)) {
+    return {
+      success: false,
+      error: 'INVALID_INPUT',
+      message: 'Please provide a valid conversation request.',
+    };
+  }
+
+  const targetModel = typeof model === 'string' && /^[a-zA-Z0-9._-]{1,100}$/.test(model)
+    ? model
+    : 'gemini-2.0-flash';
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return {
+      success: false,
+      error: 'NO_API_KEY',
+      message:
+        'Gemini API key is not configured. Please set EXPO_PUBLIC_GEMINI_API_KEY in your .env file to enable live AI responses.',
+    };
+  }
+
+  const systemInstructionText = buildSystemInstruction(context || {});
+  // Reuse formatChatHistory for prior turns only (empty latestMessage means
+  // it won't add a text turn) — the audio clip becomes the final user turn.
+  const contents = formatChatHistory(history, '');
+  contents.push({
+    role: 'user',
+    parts: [
+      { text: 'The user sent this as a voice message. Listen to it and reply naturally, as if they had typed it.' },
+      { inline_data: { mime_type: mimeType, data: audioBase64 } },
+    ],
+  });
+
+  const requestBody = {
+    contents,
+    system_instruction: {
+      parts: [{ text: systemInstructionText }],
+    },
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 800,
+    },
+  };
+
+  return runGeminiRequest(requestBody, signal, targetModel);
+};
+
+/**
+ * Shared executor: sends a fully-built requestBody to Gemini with
+ * timeout, retry, and model-fallback handling. Used by both the text
+ * and audio send functions above so they share identical error handling.
+ */
+const runGeminiRequest = async (requestBody, signal, targetModel) => {
+  const apiKey = getApiKey();
   const maxAttempts = 3;
   const timeoutMs = 18000;
   const retryDelay = (attempt) => Math.min(400 * (2 ** attempt), 1500);
@@ -333,9 +411,11 @@ export const sendGeminiChatMessage = async ({
   }
 };
 
+
 export default {
   buildSystemInstruction,
   formatChatHistory,
   isGeminiConfigured,
   sendGeminiChatMessage,
+  sendGeminiAudioMessage,
 };

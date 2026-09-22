@@ -14,12 +14,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+} from 'expo-audio';
+import { File } from 'expo-file-system';
 import { noklaiTheme } from '../../theme/noklaiTheme';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useNoklai } from '../../context/NoklaiContext';
 import { getAIResponseAsync, getAIResponse } from '../../../modules/aiData';
-import { isGeminiConfigured } from '../../../services/GeminiService';
+import { isGeminiConfigured, sendGeminiAudioMessage } from '../../../services/GeminiService';
 
 export default function NoklaiAIScreen({ onClose }) {
   const { isDarkMode } = useTheme();
@@ -66,6 +75,23 @@ export default function NoklaiAIScreen({ onClose }) {
   const mountedRef = useRef(true);
   const requestControllerRef = useRef(null);
   const requestSequenceRef = useRef(0);
+
+    // Voice input/output
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
+
+  useEffect(() => {
+    (async () => {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (!status.granted) {
+        Alert.alert(
+          'Microphone permission needed',
+          'Please allow microphone access in your phone settings to use voice messages.'
+        );
+      }
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+    })();
+  }, []);
 
   const isCurrentRequest = (requestId) =>
     mountedRef.current && requestSequenceRef.current === requestId;
@@ -182,7 +208,6 @@ export default function NoklaiAIScreen({ onClose }) {
             'पूर्वोत्तर की कोई कहानी सुनाओ',
           ]
         : [
-            'My name is Dhruv',
             'What is my name?',
             'I feel tired',
             'What can I play?',
@@ -278,9 +303,10 @@ export default function NoklaiAIScreen({ onClose }) {
         source: result.source || 'gemini',
       };
 
-      const finalMessages = [...nextMessages, aiMessage];
+            const finalMessages = [...nextMessages, aiMessage];
       setMessages(finalMessages);
       await saveMessagesToStorage(finalMessages);
+      Speech.speak(replyText, { language: isHindi ? 'hi-IN' : 'en-IN' });
     } catch (err) {
       if (!isCurrentRequest(requestId) || err?.name === 'AbortError') return;
       console.warn('AI send exception:', err);
@@ -298,6 +324,112 @@ export default function NoklaiAIScreen({ onClose }) {
             flatListRef.current?.scrollToEnd({ animated: true });
           }
         }, 100);
+      }
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    if (isLoading || recorderState.isRecording) return;
+    try {
+      Speech.stop();
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+    } catch (err) {
+      console.warn('Could not start recording:', err);
+      Alert.alert('Recording error', 'Could not access the microphone. Please try again.');
+    }
+  };
+
+  const stopVoiceRecordingAndSend = async () => {
+    if (!recorderState.isRecording) return;
+
+    let uri;
+    try {
+      await audioRecorder.stop();
+      uri = audioRecorder.uri;
+    } catch (err) {
+      console.warn('Could not stop recording:', err);
+      return;
+    }
+    if (!uri) return;
+
+    const requestId = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestId;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+
+    setErrorInfo(null);
+
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: '🎤 (Voice message)',
+      timestamp: 'Just now',
+    };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setIsLoading(true);
+
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+    try {
+      const file = new File(uri);
+      const audioBase64 = await file.base64();
+
+      const priorHistory = messages.map((m) => ({ sender: m.sender, text: m.text }));
+      const context = {
+        patientId: activePatientId || 'P001',
+        patientName: pName,
+        caregiverName: cName,
+        role,
+        reminders,
+        analyticsData,
+        language: currentLanguage,
+      };
+
+      const result = await sendGeminiAudioMessage({
+        audioBase64,
+        mimeType: 'audio/m4a',
+        history: priorHistory,
+        context,
+        signal: controller.signal,
+      });
+      if (!isCurrentRequest(requestId)) return;
+
+      const replyText = result.success && result.text
+        ? result.text
+        : (result.message || "Sorry, I couldn't understand that voice message. Please try again or type instead.");
+
+      if (!result.success) {
+        setErrorInfo({ error: result.error || 'VOICE_ERROR', message: replyText, retryQuery: null });
+      }
+
+      const aiMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'ai',
+        text: replyText,
+        timestamp: 'Just now',
+        source: result.success ? 'gemini' : 'voice_error',
+      };
+      const finalMessages = [...nextMessages, aiMessage];
+      setMessages(finalMessages);
+      await saveMessagesToStorage(finalMessages);
+      Speech.speak(replyText, { language: isHindi ? 'hi-IN' : 'en-IN' });
+    } catch (err) {
+      if (!isCurrentRequest(requestId) || err?.name === 'AbortError') return;
+      console.warn('Voice send exception:', err);
+      setErrorInfo({
+        error: 'EXCEPTION',
+        message: 'Could not send your voice message. Please try again.',
+        retryQuery: null,
+      });
+    } finally {
+      if (isCurrentRequest(requestId)) {
+        requestControllerRef.current = null;
+        setIsLoading(false);
       }
     }
   };
@@ -323,7 +455,8 @@ export default function NoklaiAIScreen({ onClose }) {
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'
+        }
       >
         {/* Top Header Bar */}
         <View
@@ -556,8 +689,26 @@ export default function NoklaiAIScreen({ onClose }) {
               styles.input,
               { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
             ]}
-            onSubmitEditing={() => handleSend(input)}
+               onSubmitEditing={() => handleSend(input)}
           />
+
+          <TouchableOpacity
+            onPressIn={startVoiceRecording}
+            onPressOut={stopVoiceRecordingAndSend}
+            disabled={isLoading}
+            style={[
+              styles.micButton,
+              {
+                backgroundColor: recorderState.isRecording
+                  ? '#DC2626'
+                  : isCaregiver
+                    ? noklaiTheme.colors.primary
+                    : noklaiTheme.colors.patientGreen,
+              },
+            ]}
+          >
+            <Ionicons name={recorderState.isRecording ? 'mic' : 'mic-outline'} size={18} color="#FFFFFF" />
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => handleSend(input)}
@@ -702,6 +853,14 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  micButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
   },
   headerActions: {
     flexDirection: 'row',

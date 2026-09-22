@@ -12,6 +12,7 @@ import {
   savePatientProfile,
 } from '../../modules/database';
 import { supabase } from '../../modules/supabaseClient';
+import NetInfo from '@react-native-community/netinfo';
 
 const NoklaiContext = createContext();
 
@@ -26,6 +27,10 @@ const STORAGE_KEYS = {
   PATIENT_PHONE: '@noklai_patient_phone',
   PATIENT_GENDER: '@noklai_patient_gender',
   SETUP_COMPLETED: '@noklai_setup_completed',
+  HOUSE_DESCRIPTION: '@noklai_house_description',
+  ROOM_DIRECTIONS: '@noklai_room_directions',
+  DOOR_SAFETY_NOTE: '@noklai_door_safety_note',
+  PENDING_SYNC_QUEUE: '@noklai_pending_sync_queue',
 };
 
 export function NoklaiProvider({ children }) {
@@ -54,6 +59,11 @@ export function NoklaiProvider({ children }) {
   const [patientPhone, setPatientPhone] = useState(existingPatientPhone || '');
   const [patientGender, setPatientGender] = useState('female');     // 'female' | 'male'
   const [hasCompletedSetup, setHasCompletedSetup] = useState(false);
+  const [houseDescription, setHouseDescription] = useState('');
+  const [roomDirections, setRoomDirections] = useState('');
+  const [doorSafetyNote, setDoorSafetyNote] = useState('');
+  const [isOnline, setIsOnline] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const patientContextSyncedRef = useRef(false);
 
@@ -123,6 +133,76 @@ export function NoklaiProvider({ children }) {
 
   const hasInitializedRef = useRef(false);
 
+  // Helper: Enqueue an offline action to sync when connection resumes
+  const enqueueOfflineAction = async (action) => {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_SYNC_QUEUE);
+      const queue = raw ? JSON.parse(raw) : [];
+      queue.push({ ...action, timestamp: Date.now() });
+      await AsyncStorage.setItem(STORAGE_KEYS.PENDING_SYNC_QUEUE, JSON.stringify(queue));
+    } catch (err) {
+      console.warn('enqueueOfflineAction error:', err);
+    }
+  };
+
+  // Helper: Flush pending offline queue to Supabase
+  const flushOfflineSyncQueue = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_SYNC_QUEUE);
+      if (!raw) return;
+      const queue = JSON.parse(raw);
+      if (!Array.isArray(queue) || queue.length === 0) return;
+
+      setIsSyncing(true);
+      const remainingQueue = [];
+
+      for (const item of queue) {
+        try {
+          if (item.type === 'ADD_REMINDER' && supabase && typeof supabase.from === 'function') {
+            await supabase.from('reminders').insert([item.payload]);
+          } else if (item.type === 'UPDATE_REMINDER' && supabase && typeof supabase.from === 'function') {
+            await supabase.from('reminders').update(item.payload.updates).eq('id', item.payload.id);
+          } else if (item.type === 'DELETE_REMINDER' && supabase && typeof supabase.from === 'function') {
+            await supabase.from('reminders').delete().eq('id', item.payload.id);
+          } else if (item.type === 'SAVE_PROFILE') {
+            await savePatientProfile(item.payload);
+          }
+        } catch (opErr) {
+          remainingQueue.push(item);
+        }
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.PENDING_SYNC_QUEUE, JSON.stringify(remainingQueue));
+    } catch (err) {
+      console.warn('flushOfflineSyncQueue error:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Monitor network status with NetInfo and auto-flush offline changes when online
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const online = Boolean(state.isConnected && state.isInternetReachable !== false);
+      setIsOnline(online);
+      if (online) {
+        flushOfflineSyncQueue();
+      }
+    });
+
+    NetInfo.fetch().then((state) => {
+      const online = Boolean(state.isConnected && state.isInternetReachable !== false);
+      setIsOnline(online);
+      if (online) {
+        flushOfflineSyncQueue();
+      }
+    }).catch(() => {});
+
+    return () => {
+      unsubscribe();
+    };
+  }, [flushOfflineSyncQueue]);
+
   // Load saved credentials, role, and setup status (runs once on mount)
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -139,6 +219,9 @@ export function NoklaiProvider({ children }) {
           savedPatientName,
           savedPatientPhone,
           savedPatientGender,
+          savedHouseDesc,
+          savedRoomDirs,
+          savedDoorNote,
         ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CURRENT_ROLE),
           AsyncStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED),
@@ -148,12 +231,19 @@ export function NoklaiProvider({ children }) {
           AsyncStorage.getItem(STORAGE_KEYS.PATIENT_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.PATIENT_PHONE),
           AsyncStorage.getItem(STORAGE_KEYS.PATIENT_GENDER),
+          AsyncStorage.getItem(STORAGE_KEYS.HOUSE_DESCRIPTION),
+          AsyncStorage.getItem(STORAGE_KEYS.ROOM_DIRECTIONS),
+          AsyncStorage.getItem(STORAGE_KEYS.DOOR_SAFETY_NOTE),
         ]);
 
         if (savedCaregiverName) setCaregiverName(savedCaregiverName);
         if (savedCaregiverPhone) setCaregiverPhone(savedCaregiverPhone);
         if (savedCaregiverGender) setCaregiverGender(savedCaregiverGender);
         if (savedPatientGender) setPatientGender(savedPatientGender);
+        if (savedHouseDesc) setHouseDescription(savedHouseDesc);
+        if (savedRoomDirs) setRoomDirections(savedRoomDirs);
+        if (savedDoorNote) setDoorSafetyNote(savedDoorNote);
+
         if (savedPatientName) {
           setActivePatientName(savedPatientName);
           setPatients((prev) =>
@@ -189,6 +279,9 @@ export function NoklaiProvider({ children }) {
     patientName: newPatientName,
     patientPhone: newPatientPhone,
     patientGender: newPatientGender,
+    houseDescription: newHouseDesc,
+    roomDirections: newRoomDirs,
+    doorSafetyNote: newDoorNote,
   }) => {
     setCaregiverName(newCaregiverName);
     setCaregiverPhone(newCaregiverPhone || '');
@@ -196,6 +289,9 @@ export function NoklaiProvider({ children }) {
     setActivePatientName(newPatientName);
     setPatientPhone(newPatientPhone || '');
     if (newPatientGender) setPatientGender(newPatientGender);
+    if (newHouseDesc !== undefined) setHouseDescription(newHouseDesc);
+    if (newRoomDirs !== undefined) setRoomDirections(newRoomDirs);
+    if (newDoorNote !== undefined) setDoorSafetyNote(newDoorNote);
     setHasCompletedSetup(true);
 
     const patGender = newPatientGender || patientGender;
@@ -211,17 +307,23 @@ export function NoklaiProvider({ children }) {
       } : p))
     );
 
-    // Persist to AsyncStorage
+    // Persist to AsyncStorage immediately (local-first)
+    const storageItems = [
+      [STORAGE_KEYS.CAREGIVER_NAME, newCaregiverName],
+      [STORAGE_KEYS.CAREGIVER_PHONE, newCaregiverPhone || ''],
+      [STORAGE_KEYS.CAREGIVER_GENDER, newCaregiverGender || caregiverGender],
+      [STORAGE_KEYS.PATIENT_NAME, newPatientName],
+      [STORAGE_KEYS.PATIENT_PHONE, newPatientPhone || ''],
+      [STORAGE_KEYS.PATIENT_GENDER, newPatientGender || patientGender],
+      [STORAGE_KEYS.SETUP_COMPLETED, 'true'],
+    ];
+
+    if (newHouseDesc !== undefined) storageItems.push([STORAGE_KEYS.HOUSE_DESCRIPTION, newHouseDesc]);
+    if (newRoomDirs !== undefined) storageItems.push([STORAGE_KEYS.ROOM_DIRECTIONS, newRoomDirs]);
+    if (newDoorNote !== undefined) storageItems.push([STORAGE_KEYS.DOOR_SAFETY_NOTE, newDoorNote]);
+
     try {
-      await AsyncStorage.multiSet([
-        [STORAGE_KEYS.CAREGIVER_NAME, newCaregiverName],
-        [STORAGE_KEYS.CAREGIVER_PHONE, newCaregiverPhone || ''],
-        [STORAGE_KEYS.CAREGIVER_GENDER, newCaregiverGender || caregiverGender],
-        [STORAGE_KEYS.PATIENT_NAME, newPatientName],
-        [STORAGE_KEYS.PATIENT_PHONE, newPatientPhone || ''],
-        [STORAGE_KEYS.PATIENT_GENDER, newPatientGender || patientGender],
-        [STORAGE_KEYS.SETUP_COMPLETED, 'true'],
-      ]);
+      await AsyncStorage.multiSet(storageItems);
     } catch (e) {
       console.warn('AsyncStorage save error:', e);
     }
@@ -241,60 +343,122 @@ export function NoklaiProvider({ children }) {
       }
     }
 
-    // Sync to Supabase patients table
-    try {
-      await savePatientProfile({
-        patient_id: activePatientId || existingPatientId || 'P001',
-        name: newPatientName,
-        caregiver_phone: newCaregiverPhone || null,
-        patient_phone: newPatientPhone || null,
-        gender: patGender,
-      });
-    } catch (e) {
-      // Continue safely offline
+    // Sync to Supabase patients table or queue if offline
+    const profilePayload = {
+      patient_id: activePatientId || existingPatientId || 'P001',
+      name: newPatientName,
+      caregiver_phone: newCaregiverPhone || null,
+      patient_phone: newPatientPhone || null,
+      gender: patGender,
+      house_description: newHouseDesc ?? houseDescription ?? null,
+      room_directions: newRoomDirs ?? roomDirections ?? null,
+      door_safety_note: newDoorNote ?? doorSafetyNote ?? null,
+    };
+
+    if (isOnline) {
+      try {
+        await savePatientProfile(profilePayload);
+      } catch (e) {
+        await enqueueOfflineAction({ type: 'SAVE_PROFILE', payload: profilePayload });
+      }
+    } else {
+      await enqueueOfflineAction({ type: 'SAVE_PROFILE', payload: profilePayload });
     }
-  }, [activePatientId, existingPatientId, savePatientSetup]);
+  }, [
+    activePatientId,
+    existingPatientId,
+    savePatientSetup,
+    caregiverGender,
+    patientGender,
+    houseDescription,
+    roomDirections,
+    doorSafetyNote,
+    isOnline,
+  ]);
 
-  // Load REAL Reminders
-  const loadReminders = useCallback(async () => {
-    setLoadingReminders(true);
+  // Save Caregiver Reality-Orientation & Environment Settings
+  const saveEnvironmentSettings = useCallback(async ({
+    houseDescription: newHouseDesc,
+    roomDirections: newRoomDirs,
+    doorSafetyNote: newDoorNote,
+  }) => {
+    if (newHouseDesc !== undefined) setHouseDescription(newHouseDesc);
+    if (newRoomDirs !== undefined) setRoomDirections(newRoomDirs);
+    if (newDoorNote !== undefined) setDoorSafetyNote(newDoorNote);
+
+    const storageItems = [
+      [STORAGE_KEYS.HOUSE_DESCRIPTION, newHouseDesc ?? houseDescription ?? ''],
+      [STORAGE_KEYS.ROOM_DIRECTIONS, newRoomDirs ?? roomDirections ?? ''],
+      [STORAGE_KEYS.DOOR_SAFETY_NOTE, newDoorNote ?? doorSafetyNote ?? ''],
+    ];
+
     try {
-      const storageKey = `${STORAGE_KEYS.LOCAL_REMINDERS_PREFIX}${activePatientId}`;
-      let localList = [];
+      await AsyncStorage.multiSet(storageItems);
+    } catch (e) {
+      console.warn('AsyncStorage saveEnvironmentSettings error:', e);
+    }
 
+    const payload = {
+      patient_id: activePatientId || existingPatientId || 'P001',
+      house_description: newHouseDesc ?? houseDescription,
+      room_directions: newRoomDirs ?? roomDirections,
+      door_safety_note: newDoorNote ?? doorSafetyNote,
+    };
+
+    if (isOnline) {
+      try {
+        await savePatientProfile(payload);
+      } catch (err) {
+        await enqueueOfflineAction({ type: 'SAVE_PROFILE', payload });
+      }
+    } else {
+      await enqueueOfflineAction({ type: 'SAVE_PROFILE', payload });
+    }
+  }, [activePatientId, existingPatientId, houseDescription, roomDirections, doorSafetyNote, isOnline]);
+
+  // Load REAL Reminders (Local-First: instant cache reading so UI never blocks on network)
+  const loadReminders = useCallback(async () => {
+    const storageKey = `${STORAGE_KEYS.LOCAL_REMINDERS_PREFIX}${activePatientId}`;
+    let localList = [];
+
+    try {
       const localRaw = await AsyncStorage.getItem(storageKey);
       if (localRaw) {
         try {
           localList = JSON.parse(localRaw) || [];
+          if (Array.isArray(localList) && localList.length > 0) {
+            setReminders(localList);
+            setLoadingReminders(false);
+          }
         } catch (e) {
           localList = [];
         }
       }
-
-      try {
-        const remoteData = await getReminders(activePatientId);
-        if (Array.isArray(remoteData) && remoteData.length > 0) {
-          const map = new Map();
-          localList.forEach((item) => map.set(item.id?.toString(), item));
-          remoteData.forEach((item) => {
-            map.set(item.id?.toString(), {
-              id: item.id?.toString(),
-              title: item.title,
-              time: item.time,
-              done: !!item.completed,
-              category: item.category || 'General',
-            });
-          });
-          localList = Array.from(map.values());
-        }
-      } catch (dbErr) {
-        // Offline fallback
-      }
-
-      setReminders(localList);
     } catch (err) {
-      console.warn('Error loading reminders:', err);
-      setReminders([]);
+      console.warn('Error reading local reminders cache:', err);
+    }
+
+    // Background fetch from Supabase to refresh and sync cache
+    try {
+      const remoteData = await getReminders(activePatientId);
+      if (Array.isArray(remoteData) && remoteData.length > 0) {
+        const map = new Map();
+        localList.forEach((item) => map.set(item.id?.toString(), item));
+        remoteData.forEach((item) => {
+          map.set(item.id?.toString(), {
+            id: item.id?.toString(),
+            title: item.title,
+            time: item.time,
+            done: !!item.completed,
+            category: item.category || 'General',
+          });
+        });
+        const merged = Array.from(map.values());
+        setReminders(merged);
+        AsyncStorage.setItem(storageKey, JSON.stringify(merged)).catch(() => {});
+      }
+    } catch (dbErr) {
+      // Offline fallback: keep cached localList without error
     } finally {
       setLoadingReminders(false);
     }
@@ -486,18 +650,25 @@ export function NoklaiProvider({ children }) {
       AsyncStorage.setItem(storageKey, JSON.stringify(updated)).catch(() => {});
 
       const current = updated.find((i) => i.id === itemId);
-      if (current && supabase && typeof supabase.from === 'function') {
-        supabase
-          .from('reminders')
-          .update({ completed: current.done })
-          .eq('id', itemId)
-          .then(() => {})
-          .catch(() => {});
+      if (current) {
+        const updatePayload = { id: itemId, updates: { completed: current.done } };
+        if (isOnline && supabase && typeof supabase.from === 'function') {
+          supabase
+            .from('reminders')
+            .update({ completed: current.done })
+            .eq('id', itemId)
+            .then(() => {})
+            .catch(() => {
+              enqueueOfflineAction({ type: 'UPDATE_REMINDER', payload: updatePayload });
+            });
+        } else {
+          enqueueOfflineAction({ type: 'UPDATE_REMINDER', payload: updatePayload });
+        }
       }
 
       return updated;
     });
-  }, [activePatientId]);
+  }, [activePatientId, isOnline]);
 
   const addReminder = useCallback(async (newReminder) => {
     const item = {
@@ -516,19 +687,23 @@ export function NoklaiProvider({ children }) {
       return updated;
     });
 
-    if (supabase && typeof supabase.from === 'function') {
+    const reminderPayload = {
+      patient_id: activePatientId,
+      title: item.title,
+      time: item.time,
+      completed: false,
+    };
+
+    if (isOnline && supabase && typeof supabase.from === 'function') {
       try {
-        await supabase.from('reminders').insert([
-          {
-            patient_id: activePatientId,
-            title: item.title,
-            time: item.time,
-            completed: false,
-          },
-        ]);
-      } catch (e) {}
+        await supabase.from('reminders').insert([reminderPayload]);
+      } catch (e) {
+        await enqueueOfflineAction({ type: 'ADD_REMINDER', payload: reminderPayload });
+      }
+    } else {
+      await enqueueOfflineAction({ type: 'ADD_REMINDER', payload: reminderPayload });
     }
-  }, [activePatientId]);
+  }, [activePatientId, isOnline]);
 
   const deleteReminder = useCallback(async (itemId) => {
     setReminders((prev) => {
@@ -538,12 +713,16 @@ export function NoklaiProvider({ children }) {
       return updated;
     });
 
-    if (supabase && typeof supabase.from === 'function') {
+    if (isOnline && supabase && typeof supabase.from === 'function') {
       try {
         await supabase.from('reminders').delete().eq('id', itemId);
-      } catch (e) {}
+      } catch (e) {
+        await enqueueOfflineAction({ type: 'DELETE_REMINDER', payload: { id: itemId } });
+      }
+    } else {
+      await enqueueOfflineAction({ type: 'DELETE_REMINDER', payload: { id: itemId } });
     }
-  }, [activePatientId]);
+  }, [activePatientId, isOnline]);
 
   const addPatient = useCallback((newPatient) => {
     const isMale = (newPatient.gender || '').toLowerCase() === 'male';
@@ -761,6 +940,20 @@ export function NoklaiProvider({ children }) {
     signOut,
     allSessions,
 
+    // Reality Orientation Environment Fields
+    houseDescription,
+    setHouseDescription,
+    roomDirections,
+    setRoomDirections,
+    doorSafetyNote,
+    setDoorSafetyNote,
+    saveEnvironmentSettings,
+
+    // Network & Offline Status
+    isOnline,
+    isSyncing,
+    flushOfflineSyncQueue,
+
     isDarkMode,
   }), [
     currentStep,
@@ -801,6 +994,13 @@ export function NoklaiProvider({ children }) {
     linkPatientByInviteCode,
     signOut,
     allSessions,
+    houseDescription,
+    roomDirections,
+    doorSafetyNote,
+    saveEnvironmentSettings,
+    isOnline,
+    isSyncing,
+    flushOfflineSyncQueue,
     isDarkMode,
   ]);
 
