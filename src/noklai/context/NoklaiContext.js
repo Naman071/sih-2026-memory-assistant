@@ -404,21 +404,11 @@ export function NoklaiProvider({ children }) {
     ];
 
     try {
-      await savePatientProfile({
-        patient_id: activePatientId || existingPatientId || 'P001',
-        name: newPatientName,
-        caregiver_phone: newCaregiverPhone || null,
-        patient_phone: newPatientPhone || null,
-        gender: patGender,
-      });
       await AsyncStorage.multiSet(storageItems);
     } catch (e) {
-      // Continue safely offline
       console.warn('AsyncStorage saveEnvironmentSettings error:', e);
     }
-  }, [activePatientId, existingPatientId, savePatientSetup]);
 
-  // Load REAL Reminders
     const payload = {
       patient_id: activePatientId || existingPatientId || 'P001',
       house_description: newHouseDesc ?? houseDescription,
@@ -443,10 +433,8 @@ export function NoklaiProvider({ children }) {
     const storageKey = `${STORAGE_KEYS.LOCAL_REMINDERS_PREFIX}${activePatientId}`;
     let localList = [];
 
+    // Step 1: Read from AsyncStorage immediately so UI never blocks on network
     try {
-      const storageKey = `${STORAGE_KEYS.LOCAL_REMINDERS_PREFIX}${activePatientId}`;
-      let localList = [];
-
       const localRaw = await AsyncStorage.getItem(storageKey);
       if (localRaw) {
         try {
@@ -463,20 +451,7 @@ export function NoklaiProvider({ children }) {
       console.warn('Error reading local reminders cache:', err);
     }
 
-      try {
-        const remoteData = await getReminders(activePatientId);
-        if (Array.isArray(remoteData) && remoteData.length > 0) {
-          const map = new Map();
-          localList.forEach((item) => map.set(item.id?.toString(), item));
-          remoteData.forEach((item) => {
-            map.set(item.id?.toString(), {
-              id: item.id?.toString(),
-              title: item.title,
-              time: item.time,
-              done: !!item.completed,
-              category: item.category || 'General',
-            });
-    // Background fetch from Supabase to refresh and sync cache
+    // Step 2: Background fetch from Supabase to refresh and sync cache
     try {
       const remoteData = await getReminders(activePatientId);
       if (Array.isArray(remoteData) && remoteData.length > 0) {
@@ -490,20 +465,11 @@ export function NoklaiProvider({ children }) {
             done: !!item.completed,
             category: item.category || 'General',
           });
-          localList = Array.from(map.values());
-        }
-      } catch (dbErr) {
-        // Offline fallback
         });
         const merged = Array.from(map.values());
         setReminders(merged);
         AsyncStorage.setItem(storageKey, JSON.stringify(merged)).catch(() => {});
       }
-
-      setReminders(localList);
-    } catch (err) {
-      console.warn('Error loading reminders:', err);
-      setReminders([]);
     } catch (dbErr) {
       // Offline fallback: keep cached localList without error
     } finally {
@@ -697,13 +663,6 @@ export function NoklaiProvider({ children }) {
       AsyncStorage.setItem(storageKey, JSON.stringify(updated)).catch(() => {});
 
       const current = updated.find((i) => i.id === itemId);
-      if (current && supabase && typeof supabase.from === 'function') {
-        supabase
-          .from('reminders')
-          .update({ completed: current.done })
-          .eq('id', itemId)
-          .then(() => {})
-          .catch(() => {});
       if (current) {
         const updatePayload = { id: itemId, updates: { completed: current.done } };
         if (isOnline && supabase && typeof supabase.from === 'function') {
@@ -721,9 +680,8 @@ export function NoklaiProvider({ children }) {
       }
 
       return updated;
-    };
-  }, [activePatientId]);
-   [activePatientId, isOnline];
+    });
+  }, [activePatientId, isOnline]);
 
   const addReminder = useCallback(async (newReminder) => {
     const item = {
@@ -742,7 +700,6 @@ export function NoklaiProvider({ children }) {
       return updated;
     });
 
-    if (supabase && typeof supabase.from === 'function') {
     const reminderPayload = {
       patient_id: activePatientId,
       title: item.title,
@@ -752,15 +709,6 @@ export function NoklaiProvider({ children }) {
 
     if (isOnline && supabase && typeof supabase.from === 'function') {
       try {
-        await supabase.from('reminders').insert([
-          {
-            patient_id: activePatientId,
-            title: item.title,
-            time: item.time,
-            completed: false,
-          },
-        ]);
-      } catch (e) {}
         await supabase.from('reminders').insert([reminderPayload]);
       } catch (e) {
         await enqueueOfflineAction({ type: 'ADD_REMINDER', payload: reminderPayload });
@@ -768,7 +716,6 @@ export function NoklaiProvider({ children }) {
     } else {
       await enqueueOfflineAction({ type: 'ADD_REMINDER', payload: reminderPayload });
     }
-  }, [activePatientId]);
   }, [activePatientId, isOnline]);
 
   const deleteReminder = useCallback(async (itemId) => {
@@ -779,18 +726,15 @@ export function NoklaiProvider({ children }) {
       return updated;
     });
 
-    if (supabase && typeof supabase.from === 'function') {
     if (isOnline && supabase && typeof supabase.from === 'function') {
       try {
         await supabase.from('reminders').delete().eq('id', itemId);
-      } catch (e) {}
       } catch (e) {
         await enqueueOfflineAction({ type: 'DELETE_REMINDER', payload: { id: itemId } });
       }
     } else {
       await enqueueOfflineAction({ type: 'DELETE_REMINDER', payload: { id: itemId } });
     }
-  }, [activePatientId]);
   }, [activePatientId, isOnline]);
 
   const addPatient = useCallback((newPatient) => {
@@ -1078,7 +1022,7 @@ export function NoklaiProvider({ children }) {
       {children}
     </NoklaiContext.Provider>
   );
-
+}
 
 export function useNoklai() {
   const context = useContext(NoklaiContext);

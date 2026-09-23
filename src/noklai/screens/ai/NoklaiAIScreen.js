@@ -282,10 +282,14 @@ export default function NoklaiAIScreen({ onClose }) {
         replyText = result.text;
       } else if (result.fallback) {
         replyText = result.fallback;
-        if (result.error && result.error !== 'NO_API_KEY') {
+        // Only show the error banner for transient errors where retrying makes sense
+        // (rate-limit, timeout, network drop). For API_ERROR with a good local fallback,
+        // the patient already got an answer — a red banner would only confuse them.
+        const retryableErrors = ['RATE_LIMIT', 'TIMEOUT', 'NETWORK_ERROR'];
+        if (result.error && retryableErrors.includes(result.error)) {
           setErrorInfo({
             error: result.error,
-            message: result.message || 'Gemini encountered a temporary issue.',
+            message: result.message || 'Noklai is using its offline response. Tap Retry to try the live AI.',
             retryQuery: query,
           });
         }
