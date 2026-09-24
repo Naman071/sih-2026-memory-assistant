@@ -13,6 +13,7 @@ import {
 } from '../../modules/database';
 import { supabase } from '../../modules/supabaseClient';
 import NetInfo from '@react-native-community/netinfo';
+import * as Speech from 'expo-speech';
 
 const NoklaiContext = createContext();
 
@@ -31,6 +32,7 @@ const STORAGE_KEYS = {
   ROOM_DIRECTIONS: '@noklai_room_directions',
   DOOR_SAFETY_NOTE: '@noklai_door_safety_note',
   PENDING_SYNC_QUEUE: '@noklai_pending_sync_queue',
+  VOICE_OUTPUT_ENABLED: '@noklai_voice_output_enabled',
 };
 
 export function NoklaiProvider({ children }) {
@@ -64,6 +66,7 @@ export function NoklaiProvider({ children }) {
   const [doorSafetyNote, setDoorSafetyNote] = useState('');
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [voiceOutputEnabled, setVoiceOutputEnabledState] = useState(true);
 
   const patientContextSyncedRef = useRef(false);
 
@@ -222,6 +225,7 @@ export function NoklaiProvider({ children }) {
           savedHouseDesc,
           savedRoomDirs,
           savedDoorNote,
+          savedVoiceOutput,
         ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CURRENT_ROLE),
           AsyncStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED),
@@ -234,6 +238,7 @@ export function NoklaiProvider({ children }) {
           AsyncStorage.getItem(STORAGE_KEYS.HOUSE_DESCRIPTION),
           AsyncStorage.getItem(STORAGE_KEYS.ROOM_DIRECTIONS),
           AsyncStorage.getItem(STORAGE_KEYS.DOOR_SAFETY_NOTE),
+          AsyncStorage.getItem(STORAGE_KEYS.VOICE_OUTPUT_ENABLED),
         ]);
 
         if (savedCaregiverName) setCaregiverName(savedCaregiverName);
@@ -243,6 +248,9 @@ export function NoklaiProvider({ children }) {
         if (savedHouseDesc) setHouseDescription(savedHouseDesc);
         if (savedRoomDirs) setRoomDirections(savedRoomDirs);
         if (savedDoorNote) setDoorSafetyNote(savedDoorNote);
+        if (savedVoiceOutput !== null) {
+          setVoiceOutputEnabledState(savedVoiceOutput === 'true');
+        }
 
         if (savedPatientName) {
           setActivePatientName(savedPatientName);
@@ -426,6 +434,24 @@ export function NoklaiProvider({ children }) {
       await enqueueOfflineAction({ type: 'SAVE_PROFILE', payload });
     }
   }, [activePatientId, existingPatientId, houseDescription, roomDirections, doorSafetyNote, isOnline]);
+
+  // Voice output toggle (Read AI replies aloud)
+  const setVoiceOutputEnabled = useCallback(async (enabled) => {
+    const val = Boolean(enabled);
+    setVoiceOutputEnabledState(val);
+    if (!val) {
+      try {
+        Speech.stop();
+      } catch (e) {
+        console.warn('Speech.stop error:', e);
+      }
+    }
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.VOICE_OUTPUT_ENABLED, val ? 'true' : 'false');
+    } catch (e) {
+      console.warn('Error saving voice output setting:', e);
+    }
+  }, []);
 
   // Load REAL Reminders (Local-First: instant cache reading so UI never blocks on network)
   const loadReminders = useCallback(async () => {
@@ -967,6 +993,10 @@ export function NoklaiProvider({ children }) {
     isSyncing,
     flushOfflineSyncQueue,
 
+    // Voice Output Preferences
+    voiceOutputEnabled,
+    setVoiceOutputEnabled,
+
     isDarkMode,
   }), [
     currentStep,
@@ -1014,6 +1044,8 @@ export function NoklaiProvider({ children }) {
     isOnline,
     isSyncing,
     flushOfflineSyncQueue,
+    voiceOutputEnabled,
+    setVoiceOutputEnabled,
     isDarkMode,
   ]);
 

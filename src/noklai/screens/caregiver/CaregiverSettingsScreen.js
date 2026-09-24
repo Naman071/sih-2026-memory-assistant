@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,8 @@ export default function CaregiverSettingsScreen() {
     patientAvatar,
     caregiverPhone,
     patientPhone,
+    voiceOutputEnabled,
+    setVoiceOutputEnabled,
     selectRole,
     setCurrentStep,
     resetToLaunch,
@@ -187,6 +190,38 @@ export default function CaregiverSettingsScreen() {
               </Text>
             </View>
             <ThemeToggle />
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: isDarkMode ? '#2D3545' : '#E8EAE3' }]} />
+
+          <View style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+              <Ionicons
+                name={voiceOutputEnabled ? 'volume-high-outline' : 'volume-mute-outline'}
+                size={20}
+                color={noklaiTheme.colors.primary}
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.prefText,
+                    { color: isDarkMode ? noklaiTheme.colors.textPrimaryDark : noklaiTheme.colors.textPrimary },
+                  ]}
+                >
+                  Read AI replies aloud
+                </Text>
+                <Text style={{ fontSize: 12, color: isDarkMode ? '#9CA3AF' : '#6B7280', marginTop: 2 }}>
+                  {voiceOutputEnabled ? 'AI voice speech is enabled' : 'AI voice speech is muted'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={voiceOutputEnabled}
+              onValueChange={setVoiceOutputEnabled}
+              trackColor={{ false: isDarkMode ? '#374151' : '#D1D5DB', true: noklaiTheme.colors.primary }}
+              thumbColor="#FFFFFF"
+            />
           </View>
         </View>
 

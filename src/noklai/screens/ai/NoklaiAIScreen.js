@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,9 +39,11 @@ export default function NoklaiAIScreen({ onClose }) {
     activePatientName,
     activePatientId,
     caregiverName,
+    caregiverPhone,
     reminders,
     analyticsData,
     setAiModalVisible,
+    voiceOutputEnabled,
   } = useNoklai();
 
   const isCaregiver = role === 'caregiver';
@@ -48,6 +51,33 @@ export default function NoklaiAIScreen({ onClose }) {
   const cName = caregiverName || 'Caregiver';
   const isHindi = currentLanguage === 'hi';
   const hasGeminiKey = isGeminiConfigured();
+
+  // Stop active speech immediately if voice output is turned off in Settings
+  useEffect(() => {
+    if (!voiceOutputEnabled) {
+      try {
+        Speech.stop();
+      } catch (e) {}
+    }
+  }, [voiceOutputEnabled]);
+
+  // Open native dialer with prefilled caregiver phone or show helpful prompt
+  const handleCallCaregiver = (customPhone) => {
+    const targetPhone = (customPhone || caregiverPhone || '').trim();
+    if (!targetPhone) {
+      Alert.alert(
+        'Caregiver Phone Missing',
+        'Please ask your caregiver to add their phone number in Settings.'
+      );
+      return;
+    }
+    const cleanNumber = targetPhone.replace(/[^\d+]/g, '');
+    const url = `tel:${cleanNumber}`;
+    Linking.openURL(url).catch((err) => {
+      console.warn('Could not open phone dialer:', err);
+      Alert.alert('Call Error', 'Could not open phone dialer on this device.');
+    });
+  };
 
   const defaultGreeting = isCaregiver
     ? (isHindi
@@ -267,6 +297,7 @@ export default function NoklaiAIScreen({ onClose }) {
       patientName: learnedName || pName,
       learnedName: learnedName,
       caregiverName: cName,
+      caregiverPhone: caregiverPhone || '',
       role,
       reminders,
       analyticsData,
@@ -299,18 +330,29 @@ export default function NoklaiAIScreen({ onClose }) {
           : `I'm here with you always. Take your time, enjoy today's moments, and let me know if you need any reminders!`;
       }
 
+      const isEmergency = Boolean(result.isEmergencyCall);
+      const effectiveCaregiverPhone = (result.caregiverPhone || caregiverPhone || '').trim();
+      const effectiveCaregiverName = result.caregiverName || cName || 'Caregiver';
+
       const aiMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
         text: replyText,
         timestamp: 'Just now',
         source: result.source || 'gemini',
+        isEmergencyCall: isEmergency,
+        caregiverPhone: effectiveCaregiverPhone,
+        caregiverName: effectiveCaregiverName,
       };
 
-            const finalMessages = [...nextMessages, aiMessage];
+      const finalMessages = [...nextMessages, aiMessage];
       setMessages(finalMessages);
       await saveMessagesToStorage(finalMessages);
-      Speech.speak(replyText, { language: isHindi ? 'hi-IN' : 'en-IN' });
+      if (voiceOutputEnabled) {
+        Speech.speak(replyText, {
+          language: currentLanguage === 'hi' ? 'hi-IN' : currentLanguage === 'bn' ? 'bn-IN' : currentLanguage === 'as' ? 'as-IN' : 'en-IN',
+        });
+      }
     } catch (err) {
       if (!isCurrentRequest(requestId) || err?.name === 'AbortError') return;
       console.warn('AI send exception:', err);
@@ -388,6 +430,7 @@ export default function NoklaiAIScreen({ onClose }) {
         patientId: activePatientId || 'P001',
         patientName: pName,
         caregiverName: cName,
+        caregiverPhone: caregiverPhone || '',
         role,
         reminders,
         analyticsData,
@@ -421,7 +464,11 @@ export default function NoklaiAIScreen({ onClose }) {
       const finalMessages = [...nextMessages, aiMessage];
       setMessages(finalMessages);
       await saveMessagesToStorage(finalMessages);
-      Speech.speak(replyText, { language: isHindi ? 'hi-IN' : 'en-IN' });
+      if (voiceOutputEnabled) {
+        Speech.speak(replyText, {
+          language: currentLanguage === 'hi' ? 'hi-IN' : currentLanguage === 'bn' ? 'bn-IN' : currentLanguage === 'as' ? 'as-IN' : 'en-IN',
+        });
+      }
     } catch (err) {
       if (!isCurrentRequest(requestId) || err?.name === 'AbortError') return;
       console.warn('Voice send exception:', err);
@@ -496,6 +543,15 @@ export default function NoklaiAIScreen({ onClose }) {
           </View>
 
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => handleCallCaregiver()}
+              style={[styles.headerActionBtn, styles.headerCallBtn]}
+              accessibilityLabel={`Call ${caregiverName || 'Caregiver'}`}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="call" size={17} color="#FFFFFF" />
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={handleClearChat}
               style={styles.headerActionBtn}
@@ -577,6 +633,10 @@ export default function NoklaiAIScreen({ onClose }) {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => {
             const isAi = item.sender === 'ai';
+            const isEmergency = Boolean(item.isEmergencyCall);
+            const callNumber = (item.caregiverPhone || caregiverPhone || '').trim();
+            const targetCaregiverName = item.caregiverName || cName || 'Caregiver';
+
             return (
               <View
                 style={[
@@ -585,8 +645,8 @@ export default function NoklaiAIScreen({ onClose }) {
                 ]}
               >
                 {isAi && (
-                  <View style={styles.aiAvatar}>
-                    <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+                  <View style={[styles.aiAvatar, isEmergency && styles.aiAvatarEmergency]}>
+                    <Ionicons name={isEmergency ? 'call' : 'sparkles'} size={16} color="#FFFFFF" />
                   </View>
                 )}
 
@@ -598,7 +658,7 @@ export default function NoklaiAIScreen({ onClose }) {
                           styles.aiBubble,
                           {
                             backgroundColor: isDarkMode ? '#1E2430' : '#FFFFFF',
-                            borderColor: isDarkMode ? '#2B3545' : '#E5E7EB',
+                            borderColor: isEmergency ? '#EF4444' : (isDarkMode ? '#2B3545' : '#E5E7EB'),
                           },
                         ]
                       : [
@@ -625,6 +685,31 @@ export default function NoklaiAIScreen({ onClose }) {
                   >
                     {item.text}
                   </Text>
+
+                  {isEmergency && (
+                    <View style={styles.emergencyContainer}>
+                      {callNumber ? (
+                        <TouchableOpacity
+                          style={styles.callCaregiverBtn}
+                          onPress={() => handleCallCaregiver(callNumber)}
+                          activeOpacity={0.8}
+                          accessibilityLabel={`Call ${targetCaregiverName}`}
+                        >
+                          <Ionicons name="call" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.callCaregiverBtnText}>
+                            📞 Call {targetCaregiverName}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.missingPhoneBox}>
+                          <Ionicons name="alert-circle-outline" size={18} color="#B91C1C" style={{ marginRight: 6 }} />
+                          <Text style={styles.missingPhoneText}>
+                            Please ask your caregiver to add their phone number in Settings.
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -902,5 +987,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  aiAvatarEmergency: {
+    backgroundColor: '#DC2626',
+  },
+  headerCallBtn: {
+    backgroundColor: '#DC2626',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emergencyContainer: {
+    marginTop: 10,
+    width: '100%',
+  },
+  callCaregiverBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  callCaregiverBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  missingPhoneBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  missingPhoneText: {
+    flex: 1,
+    color: '#B91C1C',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 });
